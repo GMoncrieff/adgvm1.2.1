@@ -1,0 +1,319 @@
+CLD_TREE
+nc
+
+K_CAN_EXT_TREE
+const double K_CAN_EXT_TREE			= 0.5;
+const double K_CAN_EXT_TREE[2]			= {0.5, 0.4};
+
+K_CAN_EXT_TREE_INVERSE
+const double K_CAN_EXT_TREE_INVERSE		= 1./K_CAN_EXT_TREE;
+const double K_CAN_EXT_TREE_INVERSE[2]		= { 1./K_CAN_EXT_TREE[0], 1./K_CAN_EXT_TREE[1] };
+
+BETA_STEM_TREE
+nc
+
+BETA_ROOT_TREE
+nc
+
+UPSILON_STEM_TREE
+nc
+
+UPSILON_ROOT_TREE
+nc
+
+SIGMA_GROW_RESP_TREE
+const double SIGMA_GROW_RESP_TREE		= 0.35;
+const double SIGMA_GROW_RESP_TREE[2]	= { 0.35, 0.35 };
+
+SIGMA_GROW_RESP_GRASS
+const double SIGMA_GROW_RESP_GRASS		= 0.35;
+const double SIGMA_GROW_RESP_GRASS[6]   = { 0.35, 0.35, 0.35, 0.35, 0.35, 0.35 }
+
+IGNITION_PROB
+nc
+
+IGNITION_PAR_2
+nc
+
+SEED_GERM_PROB
+const double SEED_GERM_PROB				= 0.25;
+const double SEED_GERM_PROB[2]			= { 0.25, 0.25 };
+
+PROB_ROOT_SUCKER
+const double PROB_ROOT_SUCKER        			   = 0.5;
+const double PROB_ROOT_SUCKER[2]		= { 0., 0. };
+
+DEATH_PROB_FROST
+const double DEATH_PROB_FROST			= 0.001;
+const double DEATH_PROB_FROST[2]		= { 0.001, 0.001 };
+
+DEATH_PROB_CARBON
+const double DEATH_PROB_CARBON			= 0.001;
+const double DEATH_PROB_CARBON[2]		= { 0.001, 0.001 };
+
+DEATH_PROB_COMP
+const double DEATH_PROB_COMP			= 0.001;
+const double DEATH_PROB_COMP[2]			= { 0.001, 0.0005 };
+
+LIGHT_COMP_TREE_TREE_1          <-------------------- shading effect savanna tree on savanna tree
+LIGHT_COMP_TREE_TREE_2
+LIGHT_COMP_GRASS_TREE_1         <-------------------- shading effect savanna tree on c4 grass
+LIGHT_COMP_GRASS_TREE_2
+LIGHT_COMP_GRASS_GRASS_1        <-------------------- shading effect savanna tree on c3 grass
+LIGHT_COMP_GRASS_GRASS_2
+LIGHT_COMP_TREE_GRASS_1         <-------------------- shading effect forest tree on savanna tree
+LIGHT_COMP_TREE_GRASS_2
+
+
+becomes
+
+
+const double LIGHT_COMP_SAVSAV = 0.5;
+const double LIGHT_COMP_SAVC4 = 0.5;
+const double LIGHT_COMP_SAVC3 = 0.15;
+const double LIGHT_COMP_FORSAV = 0.5;
+
+
+
+const double L_SAV_SAV = 0.5;
+const double L_SAV_FOR = 0.15;
+const double L_SAV_C4G = 0.5;
+const double L_SAV_C3G = 0.15;
+
+const double L_FOR_SAV = 0.5;
+const double L_FOR_FOR = 0.15;
+const double L_FOR_C4G = 0.5;
+const double L_FOR_C3G = 0.15;
+
+const double L_C4G_SAV = 0.5;
+const double L_C4G_FOR = 0.15;
+const double L_C4G_C4G = 0.5;
+const double L_C4G_C3G = 0.15;
+
+const double L_C3G_SAV = 0.5;
+const double L_C3G_FOR = 0.15;
+const double L_C3G_C4G = 0.5;
+const double L_C3G_C3G = 0.15;
+
+
+const double LICMP_1[8][8] = {
+L_SAV_SAV, L_SAV_FOR, L_SAV_C4G, L_SAV_C4G, L_SAV_C4G, L_SAV_C3G, L_SAV_C3G, L_SAV_C3G,
+L_FOR_SAV, L_FOR_FOR, L_FOR_C4G, L_FOR_C4G, L_FOR_C4G, L_FOR_C3G, L_FOR_C3G, L_FOR_C3G,
+L_C4G_SAV, L_C4G_FOR, L_C4G_C4G, L_C4G_C4G, L_C4G_C4G, L_C4G_C3G, L_C4G_C3G, L_C4G_C3G,
+L_C4G_SAV, L_C4G_FOR, L_C4G_C4G, L_C4G_C4G, L_C4G_C4G, L_C4G_C3G, L_C4G_C3G, L_C4G_C3G,
+L_C4G_SAV, L_C4G_FOR, L_C4G_C4G, L_C4G_C4G, L_C4G_C4G, L_C4G_C3G, L_C4G_C3G, L_C4G_C3G,
+L_C3G_SAV, L_C3G_FOR, L_C3G_C4G, L_C3G_C4G, L_C3G_C4G, L_C3G_C3G, L_C3G_C3G, L_C3G_C3G,
+L_C3G_SAV, L_C3G_FOR, L_C3G_C4G, L_C3G_C4G, L_C3G_C4G, L_C3G_C3G, L_C3G_C3G, L_C3G_C3G,
+L_C3G_SAV, L_C3G_FOR, L_C3G_C4G, L_C3G_C4G, L_C3G_C4G, L_C3G_C3G, L_C3G_C3G, L_C3G_C3G };
+
+const double LICMP_2[8][8] = { 
+1.-L_SAV_SAV, 1.-L_SAV_FOR, 1.-L_SAV_C4G, 1.-L_SAV_C4G, 1.-L_SAV_C4G, 1.-L_SAV_C3G, 1.-L_SAV_C3G, 1.-L_SAV_C3G,
+1.-L_FOR_SAV, 1.-L_FOR_FOR, 1.-L_FOR_C4G, 1.-L_FOR_C4G, 1.-L_FOR_C4G, 1.-L_FOR_C3G, 1.-L_FOR_C3G, 1.-L_FOR_C3G,
+1.-L_C4G_SAV, 1.-L_C4G_FOR, 1.-L_C4G_C4G, 1.-L_C4G_C4G, 1.-L_C4G_C4G, 1.-L_C4G_C3G, 1.-L_C4G_C3G, 1.-L_C4G_C3G,
+1.-L_C4G_SAV, 1.-L_C4G_FOR, 1.-L_C4G_C4G, 1.-L_C4G_C4G, 1.-L_C4G_C4G, 1.-L_C4G_C3G, 1.-L_C4G_C3G, 1.-L_C4G_C3G,
+1.-L_C4G_SAV, 1.-L_C4G_FOR, 1.-L_C4G_C4G, 1.-L_C4G_C4G, 1.-L_C4G_C4G, 1.-L_C4G_C3G, 1.-L_C4G_C3G, 1.-L_C4G_C3G,
+1.-L_C3G_SAV, 1.-L_C3G_FOR, 1.-L_C3G_C4G, 1.-L_C3G_C4G, 1.-L_C3G_C4G, 1.-L_C3G_C3G, 1.-L_C3G_C3G, 1.-L_C3G_C3G,
+1.-L_C3G_SAV, 1.-L_C3G_FOR, 1.-L_C3G_C4G, 1.-L_C3G_C4G, 1.-L_C3G_C4G, 1.-L_C3G_C3G, 1.-L_C3G_C3G, 1.-L_C3G_C3G,
+1.-L_C3G_SAV, 1.-L_C3G_FOR, 1.-L_C3G_C4G, 1.-L_C3G_C4G, 1.-L_C3G_C4G, 1.-L_C3G_C3G, 1.-L_C3G_C3G, 1.-L_C3G_C3G };
+
+
+nc
+
+		CLD_TREE                 = 0.02;
+		K_CAN_EXT_TREE[0]        = 0.5;
+		K_CAN_EXT_TREE[1]        = 0.4;
+		K_CAN_EXT_TREE_INVERSE[0]   = 1./K_CAN_EXT_TREE[0];
+		K_CAN_EXT_TREE_INVERSE[1]   = 1./K_CAN_EXT_TREE[1];
+		IGNITION_PROB            = 0.01;
+		IGNITION_PAR_2           = 0.1;
+		UPSILON_STEM_TREE        = 150.;
+		UPSILON_ROOT_TREE        = UPSILON_STEM_TREE*6./15.;
+		SIGMA_GROW_RESP_TREE[0]     = 0.35;
+		SIGMA_GROW_RESP_TREE[1]     = 0.35;
+		SIGMA_GROW_RESP_GRASS[0]    = 0.35;
+		SIGMA_GROW_RESP_GRASS[1]    = 0.35;
+		PROB_ROOT_SUCKER[0]         = 0.;
+		PROB_ROOT_SUCKER[1]         = 0.;
+		BETA_STEM_TREE           = 0.025;
+		BETA_ROOT_TREE           = BETA_STEM_TREE;
+		SEED_GERM_PROB[0]           = 0.25;
+		SEED_GERM_PROB[1]           = 0.25;
+		DEATH_PROB_FROST[0]         = 0.001;
+		DEATH_PROB_FROST[1]         = 0.001;
+		DEATH_PROB_CARBON[0]        = 0.001;
+		DEATH_PROB_CARBON[1]        = 0.001;
+		DEATH_PROB_COMP[0]          = 0.001;
+		DEATH_PROB_COMP[1]          = 0.0005;
+		LIGHT_COMP_SAVSAV           = 0.5;
+		LIGHT_COMP_SAVC4            = 0.5;
+		LIGHT_COMP_SAVC3            = 0.15;
+		LIGHT_COMP_FORSAV           = 0.5;
+		TOP_KILL_CONST[0]           = 4.3;
+		TOP_KILL_CONST[1]           = 5.3;
+		TOP_KILL_H[0]               = 5.003;
+		TOP_KILL_H[1]               = 4.003;
+		TOP_KILL_I[0]               = 0.004408;
+		TOP_KILL_I[1]               = 0.005408;
+
+		L_SAV_SAV = 0.5;  (LIGHT_COMP_TREE_TREE_1)
+		L_SAV_FOR = 0.15;
+		L_SAV_C4G = 0.5;  (LIGHT_COMP_GRASS_TREE_1)
+		L_SAV_C3G = 0.15; (LIGHT_COMP_GRASS_GRASS_1)
+
+		L_FOR_SAV = 0.5;  (LIGHT_COMP_TREE_GRASS_1)
+		L_FOR_FOR = 0.15;
+		L_FOR_C4G = 0.5;
+		L_FOR_C3G = 0.15;
+
+		L_C4G_SAV = 0.5;
+		L_C4G_FOR = 0.15;
+		L_C4G_C4G = 0.5;
+		L_C4G_C3G = 0.15;
+
+		L_C3G_SAV = 0.5;
+		L_C3G_FOR = 0.15;
+		L_C3G_C4G = 0.5;
+		L_C3G_C3G = 0.15;
+
+
+		LICMP_1[8][8] = {
+		L_SAV_SAV, L_SAV_FOR, L_SAV_C4G, L_SAV_C4G, L_SAV_C4G, L_SAV_C3G, L_SAV_C3G, L_SAV_C3G,
+		L_FOR_SAV, L_FOR_FOR, L_FOR_C4G, L_FOR_C4G, L_FOR_C4G, L_FOR_C3G, L_FOR_C3G, L_FOR_C3G,
+		L_C4G_SAV, L_C4G_FOR, L_C4G_C4G, L_C4G_C4G, L_C4G_C4G, L_C4G_C3G, L_C4G_C3G, L_C4G_C3G,
+		L_C4G_SAV, L_C4G_FOR, L_C4G_C4G, L_C4G_C4G, L_C4G_C4G, L_C4G_C3G, L_C4G_C3G, L_C4G_C3G,
+		L_C4G_SAV, L_C4G_FOR, L_C4G_C4G, L_C4G_C4G, L_C4G_C4G, L_C4G_C3G, L_C4G_C3G, L_C4G_C3G,
+		L_C3G_SAV, L_C3G_FOR, L_C3G_C4G, L_C3G_C4G, L_C3G_C4G, L_C3G_C3G, L_C3G_C3G, L_C3G_C3G,
+		L_C3G_SAV, L_C3G_FOR, L_C3G_C4G, L_C3G_C4G, L_C3G_C4G, L_C3G_C3G, L_C3G_C3G, L_C3G_C3G,
+		L_C3G_SAV, L_C3G_FOR, L_C3G_C4G, L_C3G_C4G, L_C3G_C4G, L_C3G_C3G, L_C3G_C3G, L_C3G_C3G };
+
+		LICMP_2[8][8] = { 
+		1.-L_SAV_SAV, 1.-L_SAV_FOR, 1.-L_SAV_C4G, 1.-L_SAV_C4G, 1.-L_SAV_C4G, 1.-L_SAV_C3G, 1.-L_SAV_C3G, 1.-L_SAV_C3G,
+		1.-L_FOR_SAV, 1.-L_FOR_FOR, 1.-L_FOR_C4G, 1.-L_FOR_C4G, 1.-L_FOR_C4G, 1.-L_FOR_C3G, 1.-L_FOR_C3G, 1.-L_FOR_C3G,
+		1.-L_C4G_SAV, 1.-L_C4G_FOR, 1.-L_C4G_C4G, 1.-L_C4G_C4G, 1.-L_C4G_C4G, 1.-L_C4G_C3G, 1.-L_C4G_C3G, 1.-L_C4G_C3G,
+		1.-L_C4G_SAV, 1.-L_C4G_FOR, 1.-L_C4G_C4G, 1.-L_C4G_C4G, 1.-L_C4G_C4G, 1.-L_C4G_C3G, 1.-L_C4G_C3G, 1.-L_C4G_C3G,
+		1.-L_C4G_SAV, 1.-L_C4G_FOR, 1.-L_C4G_C4G, 1.-L_C4G_C4G, 1.-L_C4G_C4G, 1.-L_C4G_C3G, 1.-L_C4G_C3G, 1.-L_C4G_C3G,
+		1.-L_C3G_SAV, 1.-L_C3G_FOR, 1.-L_C3G_C4G, 1.-L_C3G_C4G, 1.-L_C3G_C4G, 1.-L_C3G_C3G, 1.-L_C3G_C3G, 1.-L_C3G_C3G,
+		1.-L_C3G_SAV, 1.-L_C3G_FOR, 1.-L_C3G_C4G, 1.-L_C3G_C4G, 1.-L_C3G_C4G, 1.-L_C3G_C3G, 1.-L_C3G_C3G, 1.-L_C3G_C3G,
+		1.-L_C3G_SAV, 1.-L_C3G_FOR, 1.-L_C3G_C4G, 1.-L_C3G_C4G, 1.-L_C3G_C4G, 1.-L_C3G_C3G, 1.-L_C3G_C3G, 1.-L_C3G_C3G };
+
+	}
+	else
+	{
+		for ( int i=0; i<INPUT_PARAMS; i++ ) s_params[i] = (string) argv[9+i];
+		for ( int i=0; i<INPUT_PARAMS; i++ ) d_params[i] = atof(argv[9+i]);
+		
+		CLD_TREE                 = d_params[0]*0.1/100.;
+		K_CAN_EXT_TREE[0]        = d_params[1]*1./100.;
+		K_CAN_EXT_TREE[1]        = d_params[2]*1./100.;
+		K_CAN_EXT_TREE_INVERSE[0] = 1./K_CAN_EXT_TREE[0];
+		K_CAN_EXT_TREE_INVERSE[1] = 1./K_CAN_EXT_TREE[1];
+		IGNITION_PROB            = d_params[3]*0.1/100.;
+		IGNITION_PAR_2           = d_params[4]*1./100.;
+		UPSILON_STEM_TREE        = d_params[5]*1000./100.;
+		UPSILON_ROOT_TREE        = UPSILON_STEM_TREE*6./15.;
+		SIGMA_GROW_RESP_TREE[0]  = d_params[6]*1./100.;
+		SIGMA_GROW_RESP_TREE[1]  = d_params[7]*1./100.;
+		SIGMA_GROW_RESP_GRASS[0]    = SIGMA_GROW_RESP_TREE[0];
+		SIGMA_GROW_RESP_GRASS[1]    = SIGMA_GROW_RESP_TREE[1];
+		PROB_ROOT_SUCKER[0]         = d_params[8]*1./100.;
+		PROB_ROOT_SUCKER[1]         = d_params[9]*1./100.;
+		BETA_STEM_TREE           = d_params[10]*0.1/100.;
+		BETA_ROOT_TREE           = BETA_STEM_TREE;
+		SEED_GERM_PROB[0]           = d_params[11]*1./100.;
+		SEED_GERM_PROB[1]           = d_params[12]*1./100.;
+		DEATH_PROB_FROST[0]         = d_params[13]*0.01/100.;
+		DEATH_PROB_FROST[1]         = d_params[14]*0.01/100.;
+		DEATH_PROB_CARBON[0]        = d_params[15]*0.01/100.;
+		DEATH_PROB_CARBON[1]        = d_params[16]*0.01/100.;
+		DEATH_PROB_COMP[0]          = d_params[17]*0.01/100.;
+		DEATH_PROB_COMP[1]          = d_params[18]*0.001/100.;
+		LIGHT_COMP_SAVSAV   = d_params[19]*1./100.;
+		LIGHT_COMP_SAVC4    = d_params[20]*1./100.;
+		LIGHT_COMP_SAVC3    = d_params[21]*1./100.;
+		LIGHT_COMP_FORSAV   = d_params[22]*1./100.;
+		TOP_KILL_CONST[0]           = d_params[23]*1./10; 43
+		TOP_KILL_CONST[1]           = d_params[24]*1./10;  53
+		TOP_KILL_H[0]               = d_params[25]*1./1000;  5003
+		TOP_KILL_H[1]               = d_params[26]*1./1000;  4003
+		TOP_KILL_I[0]               = d_params[27]*1./1000000;   4408
+		TOP_KILL_I[1]               = d_params[28]*1./1000000;   5408
+
+
+		L_SAV_SAV = d_params[19]*1./100.;
+		L_SAV_FOR = 0.15;
+		L_SAV_C4G = d_params[20]*1./100.;
+		L_SAV_C3G = d_params[21]*1./100.;
+
+		L_FOR_SAV = d_params[22]*1./100.;
+		L_FOR_FOR = 0.15;
+		L_FOR_C4G = 0.5;
+		L_FOR_C3G = 0.15;
+
+		L_C4G_SAV = 0.5;
+		L_C4G_FOR = 0.15;
+		L_C4G_C4G = 0.5;
+		L_C4G_C3G = 0.15;
+
+		L_C3G_SAV = 0.5;
+		L_C3G_FOR = 0.15;
+		L_C3G_C4G = 0.5;
+		L_C3G_C3G = 0.15;
+
+
+		LICMP_1[8][8] = {
+		L_SAV_SAV, L_SAV_FOR, L_SAV_C4G, L_SAV_C4G, L_SAV_C4G, L_SAV_C3G, L_SAV_C3G, L_SAV_C3G,
+		L_FOR_SAV, L_FOR_FOR, L_FOR_C4G, L_FOR_C4G, L_FOR_C4G, L_FOR_C3G, L_FOR_C3G, L_FOR_C3G,
+		L_C4G_SAV, L_C4G_FOR, L_C4G_C4G, L_C4G_C4G, L_C4G_C4G, L_C4G_C3G, L_C4G_C3G, L_C4G_C3G,
+		L_C4G_SAV, L_C4G_FOR, L_C4G_C4G, L_C4G_C4G, L_C4G_C4G, L_C4G_C3G, L_C4G_C3G, L_C4G_C3G,
+		L_C4G_SAV, L_C4G_FOR, L_C4G_C4G, L_C4G_C4G, L_C4G_C4G, L_C4G_C3G, L_C4G_C3G, L_C4G_C3G,
+		L_C3G_SAV, L_C3G_FOR, L_C3G_C4G, L_C3G_C4G, L_C3G_C4G, L_C3G_C3G, L_C3G_C3G, L_C3G_C3G,
+		L_C3G_SAV, L_C3G_FOR, L_C3G_C4G, L_C3G_C4G, L_C3G_C4G, L_C3G_C3G, L_C3G_C3G, L_C3G_C3G,
+		L_C3G_SAV, L_C3G_FOR, L_C3G_C4G, L_C3G_C4G, L_C3G_C4G, L_C3G_C3G, L_C3G_C3G, L_C3G_C3G };
+
+		LICMP_2[8][8] = { 
+		1.-L_SAV_SAV, 1.-L_SAV_FOR, 1.-L_SAV_C4G, 1.-L_SAV_C4G, 1.-L_SAV_C4G, 1.-L_SAV_C3G, 1.-L_SAV_C3G, 1.-L_SAV_C3G,
+		1.-L_FOR_SAV, 1.-L_FOR_FOR, 1.-L_FOR_C4G, 1.-L_FOR_C4G, 1.-L_FOR_C4G, 1.-L_FOR_C3G, 1.-L_FOR_C3G, 1.-L_FOR_C3G,
+		1.-L_C4G_SAV, 1.-L_C4G_FOR, 1.-L_C4G_C4G, 1.-L_C4G_C4G, 1.-L_C4G_C4G, 1.-L_C4G_C3G, 1.-L_C4G_C3G, 1.-L_C4G_C3G,
+		1.-L_C4G_SAV, 1.-L_C4G_FOR, 1.-L_C4G_C4G, 1.-L_C4G_C4G, 1.-L_C4G_C4G, 1.-L_C4G_C3G, 1.-L_C4G_C3G, 1.-L_C4G_C3G,
+		1.-L_C4G_SAV, 1.-L_C4G_FOR, 1.-L_C4G_C4G, 1.-L_C4G_C4G, 1.-L_C4G_C4G, 1.-L_C4G_C3G, 1.-L_C4G_C3G, 1.-L_C4G_C3G,
+		1.-L_C3G_SAV, 1.-L_C3G_FOR, 1.-L_C3G_C4G, 1.-L_C3G_C4G, 1.-L_C3G_C4G, 1.-L_C3G_C3G, 1.-L_C3G_C3G, 1.-L_C3G_C3G,
+		1.-L_C3G_SAV, 1.-L_C3G_FOR, 1.-L_C3G_C4G, 1.-L_C3G_C4G, 1.-L_C3G_C4G, 1.-L_C3G_C3G, 1.-L_C3G_C3G, 1.-L_C3G_C3G,
+		1.-L_C3G_SAV, 1.-L_C3G_FOR, 1.-L_C3G_C4G, 1.-L_C3G_C4G, 1.-L_C3G_C4G, 1.-L_C3G_C3G, 1.-L_C3G_C3G, 1.-L_C3G_C3G };
+	
+
+default input pars
+
+1  0.02 * 1000
+2  0.5 * 100
+3  0.4 * 100
+4  0.01 * 1000
+5  0.1 * 100
+6  150 / 10 
+7  0.35 * 100
+8  0.35 * 100
+9  0 * 100
+10 0 * 100
+11 0.025 * 1000
+12 0.25 * 100
+13 0.25 * 100
+14 0.001 * 10000
+15 0.001 * 10000
+16 0.001 * 10000
+17 0.001 * 10000
+18 0.001 * 10000
+19 0.0005 * 100000
+
+
+20 0.5 * 100
+21 0.5 * 100
+22 0.15 * 100
+23 0.5 * 100
+24 4.3 * 10
+25 5.3 * 10
+26 5.003 * 1000
+27 4.003 * 1000
+28 0.004408 * 1000000
+29 0.005408 * 1000000
+
+
+./adgvmtest 100 100 20.0 0.0 1 6666 0 test 20 50 40 10 10 15 35 35 0 0 25 25 25 10 10 10 10 10 50 50 50 15 50 43 63 5003 3003 4408 6408
