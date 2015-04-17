@@ -8,62 +8,16 @@
 using namespace std;
 
 // for optimization, the target parameters are defined as global variables
-#ifdef OPTIM_GLOBALS
-double CLD_TREE;
-double K_CAN_EXT_TREE[2];
-double K_CAN_EXT_TREE_INVERSE[2];
-double BETA_STEM_TREE;
-double BETA_ROOT_TREE;
-double UPSILON_STEM_TREE;
-double UPSILON_ROOT_TREE;
-double SIGMA_GROW_RESP_TREE[2];
-double SIGMA_GROW_RESP_GRASS[2];
-double IGNITION_PROB;
-double IGNITION_PAR_2;
-double SEED_GERM_PROB[2];
-double PROB_ROOT_SUCKER[2];
-double DEATH_PROB_FROST[2];
-double DEATH_PROB_CARBON[2];
-double DEATH_PROB_COMP[2];
-double LIGHT_COMP_SAVSAV;
-double LIGHT_COMP_SAVC4;
-double LIGHT_COMP_SAVC3;
-double LIGHT_COMP_FORSAV;
-double TOP_KILL_CONST[2];
-double TOP_KILL_H[2];
-double TOP_KILL_I[2];
 
-double L_SAV_SAV;
-double L_SAV_FOR;
-double L_SAV_C4G;
-double L_SAV_C3G;
-
-double L_FOR_SAV;
-double L_FOR_FOR;
-double L_FOR_C4G;
-double L_FOR_C3G;
-
-double L_C4G_SAV;
-double L_C4G_FOR;
-double L_C4G_C4G;
-double L_C4G_C3G;
-
-double L_C3G_SAV;
-double L_C3G_FOR;
-double L_C3G_C4G;
-double L_C3G_C3G;
-
-double LICMP_1[8][8];
-double LICMP_2[8][8];
-
-
-#endif
 
 int GLOB_YEAR;				// GLOBAL VARIABLE
 double tmp_min_month = 0;	// GLOBAL VARIABLE!!!! Needed for Aindex
 double phen_counter  = 0;	// GLOBAL VARIABLE!!!! Counts swiches between metabolic and dormant state of tree 0
 double A0_max_C3_day = 0;	// GLOBAL VARIABLE!!!! Index of day with maximum photosynthesis, needed for reproduction
+double gs_C3_global  = 0;
+double gs_C4_global  = 0;
 
+double GLOB_SOIL_N   = 600.;
 
 
 #ifdef S_MANIP_FIRE
@@ -81,12 +35,52 @@ double grazing_rate=1.;
 #include "BigModelDebug.h"
 #include "MyMath.h"
 
-#ifdef S_AUSTRALIA
-  #include "GlobalsAustralia.h"
-#elif defined TRANSPLANT
-  #include "GlobalsTransplant.h"
-#else
-  #include "Globals.h"
+#include "Globals.h"
+
+#ifdef OPTIM_GLOBALS
+double DEATH_PROB_FROST[NUM_TR_TYPES];
+double DEATH_PROB_CARBON[NUM_TR_TYPES];
+double DEATH_PROB_COMP[NUM_TR_TYPES];
+
+double IGNITION_PROB;
+double IGNITION_PAR_2;
+
+double L_SAV_SAV;
+double L_SAV_FOR;
+double L_SAV_BBS;
+double L_FOR_SAV;
+double L_FOR_FOR;
+double L_FOR_BBS;
+double L_BBS_SAV;
+double L_BBS_FOR;
+double L_BBS_BBS;
+
+double L_C4G_SAV;
+double L_C4G_FOR;
+double L_C4G_BBS;
+double L_C3G_SAV;
+double L_C3G_FOR;
+double L_C3G_BBS;
+double L_C4G_C4G;
+double L_C3G_C3G;
+
+double L_SAV_C4G;
+double L_SAV_C3G;
+double L_FOR_C4G;
+double L_FOR_C3G;
+double L_BBS_C4G;
+double L_BBS_C3G;
+
+double LC_TR_TR_1[NUM_TR_TYPES][NUM_TR_TYPES];
+double LC_TR_TR_2[NUM_TR_TYPES][NUM_TR_TYPES];
+double LC_C3_TR_1[NUM_TR_TYPES];
+double LC_C4_TR_1[NUM_TR_TYPES];
+double LC_C3_TR_2[NUM_TR_TYPES];
+double LC_C4_TR_2[NUM_TR_TYPES];
+double LC_GR_GR_1[NUM_GR_TYPES];
+double LC_GR_GR_2[NUM_GR_TYPES];
+double LC_TR_GR_1[NUM_TR_TYPES][NUM_GR_TYPES];
+double LC_TR_GR_2[NUM_TR_TYPES][NUM_GR_TYPES];
 #endif
 
 
@@ -107,6 +101,7 @@ double grazing_rate=1.;
 #include "TreePopClass.h"
 #include "YearlyDataWriterClass.h"
 #include "SoilClass.h"
+
 
 
 int main( int argc, char **argv )
@@ -134,9 +129,6 @@ int main( int argc, char **argv )
 	int		frost				= 0;
 	int     fire_flag			= 0;
 	
-// 	double radnetsum = 0;
-	
-	
 	double	sunhrs_day;					// sunhours per day
 	double	radnet_day;					// net radiation per day
 	double	mmsTOkgd;					// micromol to mol;mol to g; growth resp loss, carbon to dry mass; seconds in 12 hours
@@ -148,6 +140,7 @@ int main( int argc, char **argv )
 	double	EtSiteRef;					// reference evapotranspiration
 	double	evapo_sum_year		= 0;
 	double	rain_sum_year		= 0;
+	double	evapo_ref_sum_year	= 0;
 	double	rain_sum			= 0;
 	double	evapo_sum			= 0;
 	double	evapo_ref_sum		= 0.;
@@ -158,6 +151,18 @@ int main( int argc, char **argv )
 	double	total_basal_area	= 0.;
 	double	total_npp			= 0.;
 	double	total_nee			= 0.;
+	
+	double	drought_index		= 0.;
+	double	drought_index_vec[10];
+	for ( int i=0; i<10; i++ ) drought_index_vec[i] = 0.;
+	
+	double	p_canopy_vec[NUM_TR_TYPES];
+	double	t_height_vec[NUM_TR_TYPES];
+	for ( int i=0; i<NUM_TR_TYPES; i++ )
+	{
+		p_canopy_vec[i] = 0.;
+		t_height_vec[i] = 0.;
+	}
 	
 	double	T_fac				= 0;  // needed for f(T) function of MaintResp
 	
@@ -229,392 +234,156 @@ int main( int argc, char **argv )
 
 #   ifdef OPTIM_GLOBALS
 //     cout << "---- OPTIM_GLOBALS -----" << endl;
-	if ( argc < 38 )
+	if ( argc < (INPUT_PARAMS+9) )
 	{
-		cerr << endl << "INI WARNING: wrong number of arguments for optimization. Standard values used." << endl;
-		for ( int i=0; i<INPUT_PARAMS; i++ ) s_params[i] = "1";
-		for ( int i=0; i<INPUT_PARAMS; i++ ) d_params[i] = 1.;
-		
-		CLD_TREE                 = 0.02;
-		K_CAN_EXT_TREE[0]        = 0.5;
-		K_CAN_EXT_TREE[1]        = 0.4;
-		K_CAN_EXT_TREE_INVERSE[0]   = 1./K_CAN_EXT_TREE[0];
-		K_CAN_EXT_TREE_INVERSE[1]   = 1./K_CAN_EXT_TREE[1];
-		IGNITION_PROB            = 0.01;
-		IGNITION_PAR_2           = 0.1;
-		UPSILON_STEM_TREE        = 150.;
-		UPSILON_ROOT_TREE        = UPSILON_STEM_TREE*6./15.;
-		SIGMA_GROW_RESP_TREE[0]     = 0.35;
-		SIGMA_GROW_RESP_TREE[1]     = 0.35;
-		SIGMA_GROW_RESP_GRASS[0]    = 0.35;
-		SIGMA_GROW_RESP_GRASS[1]    = 0.35;
-		PROB_ROOT_SUCKER[0]         = 0.;
-		PROB_ROOT_SUCKER[1]         = 0.;
-		BETA_STEM_TREE           = 0.025;
-		BETA_ROOT_TREE           = BETA_STEM_TREE;
-		SEED_GERM_PROB[0]           = 0.25;
-		SEED_GERM_PROB[1]           = 0.25;
-		DEATH_PROB_FROST[0]         = 0.001;
-		DEATH_PROB_FROST[1]         = 0.001;
-		DEATH_PROB_CARBON[0]        = 0.001;
-		DEATH_PROB_CARBON[1]        = 0.001;
-		DEATH_PROB_COMP[0]          = 0.001;
-		DEATH_PROB_COMP[1]          = 0.0005;
-		LIGHT_COMP_SAVSAV           = 0.5;
-		LIGHT_COMP_SAVC4            = 0.5;
-		LIGHT_COMP_SAVC3            = 0.15;
-		LIGHT_COMP_FORSAV           = 0.5;
-		TOP_KILL_CONST[0]           = 4.3;
-		TOP_KILL_CONST[1]           = 6.3;
-		TOP_KILL_H[0]               = 5.003;
-		TOP_KILL_H[1]               = 3.003;
-		TOP_KILL_I[0]               = 0.004408;
-		TOP_KILL_I[1]               = 0.006408;
-		
-		L_SAV_SAV = 0.5;
-		L_SAV_FOR = 0.15;
-		L_SAV_C4G = 0.5;
-		L_SAV_C3G = 0.15;
-
-		L_FOR_SAV = 0.5;
-		L_FOR_FOR = 0.15;
-		L_FOR_C4G = 0.5;
-		L_FOR_C3G = 0.15;
-
-		L_C4G_SAV = 0.5;
-		L_C4G_FOR = 0.15;
-		L_C4G_C4G = 0.5;
-		L_C4G_C3G = 0.15;
-
-		L_C3G_SAV = 0.5;
-		L_C3G_FOR = 0.15;
-		L_C3G_C4G = 0.5;
-		L_C3G_C3G = 0.15;
-
-		LICMP_1[0][0] = L_SAV_SAV;
-		LICMP_1[1][0] = L_FOR_SAV;
-		LICMP_1[2][0] = L_C4G_SAV;
-		LICMP_1[3][0] = L_C4G_SAV;
-		LICMP_1[4][0] = L_C4G_SAV;
-		LICMP_1[5][0] = L_C3G_SAV;
-		LICMP_1[6][0] = L_C3G_SAV;
-		LICMP_1[7][0] = L_C3G_SAV;
-		LICMP_1[0][1] = L_SAV_FOR;
-		LICMP_1[1][1] = L_FOR_FOR;
-		LICMP_1[2][1] = L_C4G_FOR;
-		LICMP_1[3][1] = L_C4G_FOR;
-		LICMP_1[4][1] = L_C4G_FOR;
-		LICMP_1[5][1] = L_C3G_FOR;
-		LICMP_1[6][1] = L_C3G_FOR;
-		LICMP_1[7][1] = L_C3G_FOR;
-		LICMP_1[0][2] = L_SAV_C4G;
-		LICMP_1[1][2] = L_FOR_C4G;
-		LICMP_1[2][2] = L_C4G_C4G;
-		LICMP_1[3][2] = L_C4G_C4G;
-		LICMP_1[4][2] = L_C4G_C4G;
-		LICMP_1[5][2] = L_C3G_C4G;
-		LICMP_1[6][2] = L_C3G_C4G;
-		LICMP_1[7][2] = L_C3G_C4G;
-		LICMP_1[0][3] = L_SAV_C4G;
-		LICMP_1[1][3] = L_FOR_C4G;
-		LICMP_1[2][3] = L_C4G_C4G;
-		LICMP_1[3][3] = L_C4G_C4G;
-		LICMP_1[4][3] = L_C4G_C4G;
-		LICMP_1[5][3] = L_C3G_C4G;
-		LICMP_1[6][3] = L_C3G_C4G;
-		LICMP_1[7][3] = L_C3G_C4G;
-		LICMP_1[0][4] = L_SAV_C4G;
-		LICMP_1[1][4] = L_FOR_C4G;
-		LICMP_1[2][4] = L_C4G_C4G;
-		LICMP_1[3][4] = L_C4G_C4G;
-		LICMP_1[4][4] = L_C4G_C4G;
-		LICMP_1[5][4] = L_C3G_C4G;
-		LICMP_1[6][4] = L_C3G_C4G;
-		LICMP_1[7][4] = L_C3G_C4G;
-		LICMP_1[0][5] = L_SAV_C3G;
-		LICMP_1[1][5] = L_FOR_C3G;
-		LICMP_1[2][5] = L_C4G_C3G;
-		LICMP_1[3][5] = L_C4G_C3G;
-		LICMP_1[4][5] = L_C4G_C3G;
-		LICMP_1[5][5] = L_C3G_C3G;
-		LICMP_1[6][5] = L_C3G_C3G;
-		LICMP_1[7][5] = L_C3G_C3G;
-		LICMP_1[0][6] = L_SAV_C3G;
-		LICMP_1[1][6] = L_FOR_C3G;
-		LICMP_1[2][6] = L_C4G_C3G;
-		LICMP_1[3][6] = L_C4G_C3G;
-		LICMP_1[4][6] = L_C4G_C3G;
-		LICMP_1[5][6] = L_C3G_C3G;
-		LICMP_1[6][6] = L_C3G_C3G;
-		LICMP_1[7][6] = L_C3G_C3G;
-		LICMP_1[0][7] = L_SAV_C3G;
-		LICMP_1[1][7] = L_FOR_C3G;
-		LICMP_1[2][7] = L_C4G_C3G;
-		LICMP_1[3][7] = L_C4G_C3G;
-		LICMP_1[4][7] = L_C4G_C3G;
-		LICMP_1[5][7] = L_C3G_C3G;
-		LICMP_1[6][7] = L_C3G_C3G;
-		LICMP_1[7][7] = L_C3G_C3G;
-		
-		LICMP_2[0][0] = 1.- L_SAV_SAV;
-		LICMP_2[1][0] = 1.- L_FOR_SAV;
-		LICMP_2[2][0] = 1.- L_C4G_SAV;
-		LICMP_2[3][0] = 1.- L_C4G_SAV;
-		LICMP_2[4][0] = 1.- L_C4G_SAV;
-		LICMP_2[5][0] = 1.- L_C3G_SAV;
-		LICMP_2[6][0] = 1.- L_C3G_SAV;
-		LICMP_2[7][0] = 1.- L_C3G_SAV;
-		LICMP_2[0][1] = 1.- L_SAV_FOR;
-		LICMP_2[1][1] = 1.- L_FOR_FOR;
-		LICMP_2[2][1] = 1.- L_C4G_FOR;
-		LICMP_2[3][1] = 1.- L_C4G_FOR;
-		LICMP_2[4][1] = 1.- L_C4G_FOR;
-		LICMP_2[5][1] = 1.- L_C3G_FOR;
-		LICMP_2[6][1] = 1.- L_C3G_FOR;
-		LICMP_2[7][1] = 1.- L_C3G_FOR;
-		LICMP_2[0][2] = 1.- L_SAV_C4G;
-		LICMP_2[1][2] = 1.- L_FOR_C4G;
-		LICMP_2[2][2] = 1.- L_C4G_C4G;
-		LICMP_2[3][2] = 1.- L_C4G_C4G;
-		LICMP_2[4][2] = 1.- L_C4G_C4G;
-		LICMP_2[5][2] = 1.- L_C3G_C4G;
-		LICMP_2[6][2] = 1.- L_C3G_C4G;
-		LICMP_2[7][2] = 1.- L_C3G_C4G;
-		LICMP_2[0][3] = 1.- L_SAV_C4G;
-		LICMP_2[1][3] = 1.- L_FOR_C4G;
-		LICMP_2[2][3] = 1.- L_C4G_C4G;
-		LICMP_2[3][3] = 1.- L_C4G_C4G;
-		LICMP_2[4][3] = 1.- L_C4G_C4G;
-		LICMP_2[5][3] = 1.- L_C3G_C4G;
-		LICMP_2[6][3] = 1.- L_C3G_C4G;
-		LICMP_2[7][3] = 1.- L_C3G_C4G;
-		LICMP_2[0][4] = 1.- L_SAV_C4G;
-		LICMP_2[1][4] = 1.- L_FOR_C4G;
-		LICMP_2[2][4] = 1.- L_C4G_C4G;
-		LICMP_2[3][4] = 1.- L_C4G_C4G;
-		LICMP_2[4][4] = 1.- L_C4G_C4G;
-		LICMP_2[5][4] = 1.- L_C3G_C4G;
-		LICMP_2[6][4] = 1.- L_C3G_C4G;
-		LICMP_2[7][4] = 1.- L_C3G_C4G;
-		LICMP_2[0][5] = 1.- L_SAV_C3G;
-		LICMP_2[1][5] = 1.- L_FOR_C3G;
-		LICMP_2[2][5] = 1.- L_C4G_C3G;
-		LICMP_2[3][5] = 1.- L_C4G_C3G;
-		LICMP_2[4][5] = 1.- L_C4G_C3G;
-		LICMP_2[5][5] = 1.- L_C3G_C3G;
-		LICMP_2[6][5] = 1.- L_C3G_C3G;
-		LICMP_2[7][5] = 1.- L_C3G_C3G;
-		LICMP_2[0][6] = 1.- L_SAV_C3G;
-		LICMP_2[1][6] = 1.- L_FOR_C3G;
-		LICMP_2[2][6] = 1.- L_C4G_C3G;
-		LICMP_2[3][6] = 1.- L_C4G_C3G;
-		LICMP_2[4][6] = 1.- L_C4G_C3G;
-		LICMP_2[5][6] = 1.- L_C3G_C3G;
-		LICMP_2[6][6] = 1.- L_C3G_C3G;
-		LICMP_2[7][6] = 1.- L_C3G_C3G;
-		LICMP_2[0][7] = 1.- L_SAV_C3G;
-		LICMP_2[1][7] = 1.- L_FOR_C3G;
-		LICMP_2[2][7] = 1.- L_C4G_C3G;
-		LICMP_2[3][7] = 1.- L_C4G_C3G;
-		LICMP_2[4][7] = 1.- L_C4G_C3G;
-		LICMP_2[5][7] = 1.- L_C3G_C3G;
-		LICMP_2[6][7] = 1.- L_C3G_C3G;
-		LICMP_2[7][7] = 1.- L_C3G_C3G;
-		
-
+		cerr << endl << "INI ERROR: Wrong number of arguments for optimization (" << argc << " arguments). Abort simulation." << endl << endl;
+		return 1;
 	}
 	else
 	{
 		for ( int i=0; i<INPUT_PARAMS; i++ ) s_params[i] = (string) argv[9+i];
 		for ( int i=0; i<INPUT_PARAMS; i++ ) d_params[i] = atof(argv[9+i]);
 		
-		CLD_TREE                 = d_params[0]*0.1/100.;
-		K_CAN_EXT_TREE[0]        = d_params[1]*1./100.;
-		K_CAN_EXT_TREE[1]        = d_params[2]*1./100.;
-		K_CAN_EXT_TREE_INVERSE[0] = 1./K_CAN_EXT_TREE[0];
-		K_CAN_EXT_TREE_INVERSE[1] = 1./K_CAN_EXT_TREE[1];
-		IGNITION_PROB            = d_params[3]*0.1/100.;
-		IGNITION_PAR_2           = d_params[4]*1./100.;
-		UPSILON_STEM_TREE        = d_params[5]*1000./100.;
-		UPSILON_ROOT_TREE        = UPSILON_STEM_TREE*6./15.;
-		SIGMA_GROW_RESP_TREE[0]  = d_params[6]*1./100.;
-		SIGMA_GROW_RESP_TREE[1]  = d_params[7]*1./100.;
-		SIGMA_GROW_RESP_GRASS[0]    = SIGMA_GROW_RESP_TREE[0];
-		SIGMA_GROW_RESP_GRASS[1]    = SIGMA_GROW_RESP_TREE[1];
-		PROB_ROOT_SUCKER[0]         = d_params[8]*1./100.;
-		PROB_ROOT_SUCKER[1]         = d_params[9]*1./100.;
-		BETA_STEM_TREE           = d_params[10]*0.1/100.;
-		BETA_ROOT_TREE           = BETA_STEM_TREE;
-		SEED_GERM_PROB[0]           = d_params[11]*1./100.;
-		SEED_GERM_PROB[1]           = d_params[12]*1./100.;
-		DEATH_PROB_FROST[0]         = d_params[13]*0.01/100.;
-		DEATH_PROB_FROST[1]         = d_params[14]*0.01/100.;
-		DEATH_PROB_CARBON[0]        = d_params[15]*0.01/100.;
-		DEATH_PROB_CARBON[1]        = d_params[16]*0.01/100.;
-		DEATH_PROB_COMP[0]          = d_params[17]*0.01/100.;
-		DEATH_PROB_COMP[1]          = d_params[18]*0.001/100.;
-		LIGHT_COMP_SAVSAV   = d_params[19]*1./100.;
-		LIGHT_COMP_SAVC4    = d_params[20]*1./100.;
-		LIGHT_COMP_SAVC3    = d_params[21]*1./100.;
-		LIGHT_COMP_FORSAV   = d_params[22]*1./100.;
-		TOP_KILL_CONST[0]           = d_params[23]*1./10; 
-		TOP_KILL_CONST[1]           = d_params[24]*1./10;  
-		TOP_KILL_H[0]               = d_params[25]*1./1000;  
-		TOP_KILL_H[1]               = d_params[26]*1./1000;  
-		TOP_KILL_I[0]               = d_params[27]*1./1000000;   
-		TOP_KILL_I[1]               = d_params[28]*1./1000000;  
+		DEATH_PROB_FROST[0]  = d_params[ 0];
+		DEATH_PROB_CARBON[0] = d_params[ 1];
+		DEATH_PROB_COMP[0]   = d_params[ 2];
 		
+		DEATH_PROB_FROST[1]  = d_params[ 3];
+		DEATH_PROB_CARBON[1] = d_params[ 4];
+		DEATH_PROB_COMP[1]   = d_params[ 5];
 		
-		L_SAV_SAV = d_params[19]*1./100.;
-		L_SAV_FOR = 0.15;
-		L_SAV_C4G = d_params[20]*1./100.;
-		L_SAV_C3G = d_params[21]*1./100.;
-
-		L_FOR_SAV = d_params[22]*1./100.;
-		L_FOR_FOR = 0.15;
-		L_FOR_C4G = 0.5;
-		L_FOR_C3G = 0.15;
-
-		L_C4G_SAV = 0.5;
-		L_C4G_FOR = 0.15;
-		L_C4G_C4G = 0.5;
-		L_C4G_C3G = 0.15;
-
-		L_C3G_SAV = 0.5;
-		L_C3G_FOR = 0.15;
-		L_C3G_C4G = 0.5;
-		L_C3G_C3G = 0.15;
-
-		LICMP_1[0][0] = L_SAV_SAV;
-		LICMP_1[1][0] = L_FOR_SAV;
-		LICMP_1[2][0] = L_C4G_SAV;
-		LICMP_1[3][0] = L_C4G_SAV;
-		LICMP_1[4][0] = L_C4G_SAV;
-		LICMP_1[5][0] = L_C3G_SAV;
-		LICMP_1[6][0] = L_C3G_SAV;
-		LICMP_1[7][0] = L_C3G_SAV;
-		LICMP_1[0][1] = L_SAV_FOR;
-		LICMP_1[1][1] = L_FOR_FOR;
-		LICMP_1[2][1] = L_C4G_FOR;
-		LICMP_1[3][1] = L_C4G_FOR;
-		LICMP_1[4][1] = L_C4G_FOR;
-		LICMP_1[5][1] = L_C3G_FOR;
-		LICMP_1[6][1] = L_C3G_FOR;
-		LICMP_1[7][1] = L_C3G_FOR;
-		LICMP_1[0][2] = L_SAV_C4G;
-		LICMP_1[1][2] = L_FOR_C4G;
-		LICMP_1[2][2] = L_C4G_C4G;
-		LICMP_1[3][2] = L_C4G_C4G;
-		LICMP_1[4][2] = L_C4G_C4G;
-		LICMP_1[5][2] = L_C3G_C4G;
-		LICMP_1[6][2] = L_C3G_C4G;
-		LICMP_1[7][2] = L_C3G_C4G;
-		LICMP_1[0][3] = L_SAV_C4G;
-		LICMP_1[1][3] = L_FOR_C4G;
-		LICMP_1[2][3] = L_C4G_C4G;
-		LICMP_1[3][3] = L_C4G_C4G;
-		LICMP_1[4][3] = L_C4G_C4G;
-		LICMP_1[5][3] = L_C3G_C4G;
-		LICMP_1[6][3] = L_C3G_C4G;
-		LICMP_1[7][3] = L_C3G_C4G;
-		LICMP_1[0][4] = L_SAV_C4G;
-		LICMP_1[1][4] = L_FOR_C4G;
-		LICMP_1[2][4] = L_C4G_C4G;
-		LICMP_1[3][4] = L_C4G_C4G;
-		LICMP_1[4][4] = L_C4G_C4G;
-		LICMP_1[5][4] = L_C3G_C4G;
-		LICMP_1[6][4] = L_C3G_C4G;
-		LICMP_1[7][4] = L_C3G_C4G;
-		LICMP_1[0][5] = L_SAV_C3G;
-		LICMP_1[1][5] = L_FOR_C3G;
-		LICMP_1[2][5] = L_C4G_C3G;
-		LICMP_1[3][5] = L_C4G_C3G;
-		LICMP_1[4][5] = L_C4G_C3G;
-		LICMP_1[5][5] = L_C3G_C3G;
-		LICMP_1[6][5] = L_C3G_C3G;
-		LICMP_1[7][5] = L_C3G_C3G;
-		LICMP_1[0][6] = L_SAV_C3G;
-		LICMP_1[1][6] = L_FOR_C3G;
-		LICMP_1[2][6] = L_C4G_C3G;
-		LICMP_1[3][6] = L_C4G_C3G;
-		LICMP_1[4][6] = L_C4G_C3G;
-		LICMP_1[5][6] = L_C3G_C3G;
-		LICMP_1[6][6] = L_C3G_C3G;
-		LICMP_1[7][6] = L_C3G_C3G;
-		LICMP_1[0][7] = L_SAV_C3G;
-		LICMP_1[1][7] = L_FOR_C3G;
-		LICMP_1[2][7] = L_C4G_C3G;
-		LICMP_1[3][7] = L_C4G_C3G;
-		LICMP_1[4][7] = L_C4G_C3G;
-		LICMP_1[5][7] = L_C3G_C3G;
-		LICMP_1[6][7] = L_C3G_C3G;
-		LICMP_1[7][7] = L_C3G_C3G;
+		DEATH_PROB_FROST[2]  = d_params[ 6];
+		DEATH_PROB_CARBON[2] = d_params[ 7];
+		DEATH_PROB_COMP[2]   = d_params[ 8];
 		
-		LICMP_2[0][0] = 1.- L_SAV_SAV;
-		LICMP_2[1][0] = 1.- L_FOR_SAV;
-		LICMP_2[2][0] = 1.- L_C4G_SAV;
-		LICMP_2[3][0] = 1.- L_C4G_SAV;
-		LICMP_2[4][0] = 1.- L_C4G_SAV;
-		LICMP_2[5][0] = 1.- L_C3G_SAV;
-		LICMP_2[6][0] = 1.- L_C3G_SAV;
-		LICMP_2[7][0] = 1.- L_C3G_SAV;
-		LICMP_2[0][1] = 1.- L_SAV_FOR;
-		LICMP_2[1][1] = 1.- L_FOR_FOR;
-		LICMP_2[2][1] = 1.- L_C4G_FOR;
-		LICMP_2[3][1] = 1.- L_C4G_FOR;
-		LICMP_2[4][1] = 1.- L_C4G_FOR;
-		LICMP_2[5][1] = 1.- L_C3G_FOR;
-		LICMP_2[6][1] = 1.- L_C3G_FOR;
-		LICMP_2[7][1] = 1.- L_C3G_FOR;
-		LICMP_2[0][2] = 1.- L_SAV_C4G;
-		LICMP_2[1][2] = 1.- L_FOR_C4G;
-		LICMP_2[2][2] = 1.- L_C4G_C4G;
-		LICMP_2[3][2] = 1.- L_C4G_C4G;
-		LICMP_2[4][2] = 1.- L_C4G_C4G;
-		LICMP_2[5][2] = 1.- L_C3G_C4G;
-		LICMP_2[6][2] = 1.- L_C3G_C4G;
-		LICMP_2[7][2] = 1.- L_C3G_C4G;
-		LICMP_2[0][3] = 1.- L_SAV_C4G;
-		LICMP_2[1][3] = 1.- L_FOR_C4G;
-		LICMP_2[2][3] = 1.- L_C4G_C4G;
-		LICMP_2[3][3] = 1.- L_C4G_C4G;
-		LICMP_2[4][3] = 1.- L_C4G_C4G;
-		LICMP_2[5][3] = 1.- L_C3G_C4G;
-		LICMP_2[6][3] = 1.- L_C3G_C4G;
-		LICMP_2[7][3] = 1.- L_C3G_C4G;
-		LICMP_2[0][4] = 1.- L_SAV_C4G;
-		LICMP_2[1][4] = 1.- L_FOR_C4G;
-		LICMP_2[2][4] = 1.- L_C4G_C4G;
-		LICMP_2[3][4] = 1.- L_C4G_C4G;
-		LICMP_2[4][4] = 1.- L_C4G_C4G;
-		LICMP_2[5][4] = 1.- L_C3G_C4G;
-		LICMP_2[6][4] = 1.- L_C3G_C4G;
-		LICMP_2[7][4] = 1.- L_C3G_C4G;
-		LICMP_2[0][5] = 1.- L_SAV_C3G;
-		LICMP_2[1][5] = 1.- L_FOR_C3G;
-		LICMP_2[2][5] = 1.- L_C4G_C3G;
-		LICMP_2[3][5] = 1.- L_C4G_C3G;
-		LICMP_2[4][5] = 1.- L_C4G_C3G;
-		LICMP_2[5][5] = 1.- L_C3G_C3G;
-		LICMP_2[6][5] = 1.- L_C3G_C3G;
-		LICMP_2[7][5] = 1.- L_C3G_C3G;
-		LICMP_2[0][6] = 1.- L_SAV_C3G;
-		LICMP_2[1][6] = 1.- L_FOR_C3G;
-		LICMP_2[2][6] = 1.- L_C4G_C3G;
-		LICMP_2[3][6] = 1.- L_C4G_C3G;
-		LICMP_2[4][6] = 1.- L_C4G_C3G;
-		LICMP_2[5][6] = 1.- L_C3G_C3G;
-		LICMP_2[6][6] = 1.- L_C3G_C3G;
-		LICMP_2[7][6] = 1.- L_C3G_C3G;
-		LICMP_2[0][7] = 1.- L_SAV_C3G;
-		LICMP_2[1][7] = 1.- L_FOR_C3G;
-		LICMP_2[2][7] = 1.- L_C4G_C3G;
-		LICMP_2[3][7] = 1.- L_C4G_C3G;
-		LICMP_2[4][7] = 1.- L_C4G_C3G;
-		LICMP_2[5][7] = 1.- L_C3G_C3G;
-		LICMP_2[6][7] = 1.- L_C3G_C3G;
-		LICMP_2[7][7] = 1.- L_C3G_C3G;
-
+		IGNITION_PROB        = d_params[ 9];
+		IGNITION_PAR_2       = d_params[10];
+		
+		L_SAV_SAV            = d_params[11];
+		L_SAV_FOR            = d_params[12];
+		L_SAV_BBS            = d_params[13];
+		L_FOR_SAV            = d_params[14];
+		L_FOR_FOR            = d_params[15];
+		L_FOR_BBS            = d_params[16];
+		L_BBS_SAV            = d_params[17];
+		L_BBS_FOR            = d_params[18];
+		L_BBS_BBS            = d_params[19];
+		L_C4G_SAV            = d_params[20];
+		L_C4G_FOR            = d_params[21];
+		L_C4G_BBS            = d_params[22];
+		L_C3G_SAV            = d_params[23];
+		L_C3G_FOR            = d_params[24];
+		L_C3G_BBS            = d_params[25];
+		L_C4G_C4G            = d_params[26];
+		L_C3G_C3G            = d_params[27];
+		L_SAV_C4G            = d_params[28];
+		L_SAV_C3G            = d_params[29];
+		L_FOR_C4G            = d_params[30];
+		L_FOR_C3G            = d_params[31];
+		L_BBS_C4G            = d_params[32];
+		L_BBS_C3G            = d_params[33];
+		
+		LC_TR_TR_1[0][0] = L_SAV_SAV;
+		LC_TR_TR_1[0][1] = L_SAV_FOR;
+		LC_TR_TR_1[0][2] = L_SAV_BBS;
+		LC_TR_TR_1[1][0] = L_FOR_SAV;
+		LC_TR_TR_1[1][1] = L_FOR_FOR;
+		LC_TR_TR_1[1][2] = L_FOR_BBS;
+		LC_TR_TR_1[2][0] = L_BBS_SAV;
+		LC_TR_TR_1[2][1] = L_BBS_FOR;
+		LC_TR_TR_1[2][2] = L_BBS_BBS;
+		
+		LC_TR_TR_2[0][0] = 1.-L_SAV_SAV;
+		LC_TR_TR_2[0][1] = 1.-L_SAV_FOR;
+		LC_TR_TR_2[0][2] = 1.-L_SAV_BBS;
+		LC_TR_TR_2[1][0] = 1.-L_FOR_SAV;
+		LC_TR_TR_2[1][1] = 1.-L_FOR_FOR;
+		LC_TR_TR_2[1][2] = 1.-L_FOR_BBS;
+		LC_TR_TR_2[2][0] = 1.-L_BBS_SAV;
+		LC_TR_TR_2[2][1] = 1.-L_BBS_FOR;
+		LC_TR_TR_2[2][2] = 1.-L_BBS_BBS;
+		
+		LC_C3_TR_1[0] = L_C3G_SAV;
+		LC_C3_TR_1[1] = L_C3G_FOR;
+		LC_C3_TR_1[2] = L_C3G_BBS;
+		LC_C4_TR_1[0] = L_C4G_SAV;
+		LC_C4_TR_1[1] = L_C4G_FOR;
+		LC_C4_TR_1[2] = L_C4G_BBS;
+		
+		LC_C3_TR_2[0] = 1.-L_C3G_SAV;
+		LC_C3_TR_2[1] = 1.-L_C3G_FOR;
+		LC_C3_TR_2[2] = 1.-L_C3G_BBS;
+		LC_C4_TR_2[0] = 1.-L_C4G_SAV;
+		LC_C4_TR_2[2] = 1.-L_C4G_FOR;
+		LC_C4_TR_2[3] = 1.-L_C4G_BBS;
+		
+		LC_GR_GR_1[0] = L_C4G_C4G;
+		LC_GR_GR_1[1] = L_C3G_C3G;
+		LC_GR_GR_1[2] = L_C4G_C4G;
+		LC_GR_GR_1[3] = L_C3G_C3G;
+		LC_GR_GR_1[4] = L_C4G_C4G;
+		LC_GR_GR_1[5] = L_C3G_C3G;
+		LC_GR_GR_1[6] = L_C4G_C4G;
+		LC_GR_GR_1[7] = L_C3G_C3G;
+		
+		LC_GR_GR_2[0] = 1.-L_C4G_C4G;
+		LC_GR_GR_2[1] = 1.-L_C3G_C3G;
+		LC_GR_GR_2[2] = 1.-L_C4G_C4G;
+		LC_GR_GR_2[3] = 1.-L_C3G_C3G;
+		LC_GR_GR_2[4] = 1.-L_C4G_C4G;
+		LC_GR_GR_2[5] = 1.-L_C3G_C3G;
+		LC_GR_GR_2[6] = 1.-L_C4G_C4G;
+		LC_GR_GR_2[7] = 1.-L_C3G_C3G;
+		
+		LC_TR_GR_1[0][0] = L_SAV_C4G;
+		LC_TR_GR_1[0][1] = L_SAV_C3G;
+		LC_TR_GR_1[0][2] = L_SAV_C4G;
+		LC_TR_GR_1[0][3] = L_SAV_C3G;
+		LC_TR_GR_1[0][4] = L_SAV_C4G;
+		LC_TR_GR_1[0][5] = L_SAV_C3G;
+		LC_TR_GR_1[0][6] = L_SAV_C4G;
+		LC_TR_GR_1[0][7] = L_SAV_C3G;
+		LC_TR_GR_1[1][0] = L_FOR_C4G;
+		LC_TR_GR_1[1][1] = L_FOR_C3G;
+		LC_TR_GR_1[1][2] = L_FOR_C4G;
+		LC_TR_GR_1[1][3] = L_FOR_C3G;
+		LC_TR_GR_1[1][4] = L_FOR_C4G;
+		LC_TR_GR_1[1][5] = L_FOR_C3G;
+		LC_TR_GR_1[1][6] = L_FOR_C4G;
+		LC_TR_GR_1[1][7] = L_FOR_C3G;
+		LC_TR_GR_1[1][0] = L_BBS_C4G;
+		LC_TR_GR_1[2][1] = L_BBS_C3G;
+		LC_TR_GR_1[2][2] = L_BBS_C4G;
+		LC_TR_GR_1[2][3] = L_BBS_C3G;
+		LC_TR_GR_1[2][4] = L_BBS_C4G;
+		LC_TR_GR_1[2][5] = L_BBS_C3G;
+		LC_TR_GR_1[2][6] = L_BBS_C4G;
+		LC_TR_GR_1[2][7] = L_BBS_C3G;
+		
+		LC_TR_GR_2[0][0] = 1.-L_SAV_C4G;
+		LC_TR_GR_2[0][1] = 1.-L_SAV_C3G;
+		LC_TR_GR_2[0][2] = 1.-L_SAV_C4G;
+		LC_TR_GR_2[0][3] = 1.-L_SAV_C3G;
+		LC_TR_GR_2[0][4] = 1.-L_SAV_C4G;
+		LC_TR_GR_2[0][5] = 1.-L_SAV_C3G;
+		LC_TR_GR_2[0][6] = 1.-L_SAV_C4G;
+		LC_TR_GR_2[0][7] = 1.-L_SAV_C3G;
+		LC_TR_GR_2[1][0] = 1.-L_FOR_C4G;
+		LC_TR_GR_2[1][1] = 1.-L_FOR_C3G;
+		LC_TR_GR_2[1][2] = 1.-L_FOR_C4G;
+		LC_TR_GR_2[1][3] = 1.-L_FOR_C3G;
+		LC_TR_GR_2[1][4] = 1.-L_FOR_C4G;
+		LC_TR_GR_2[1][5] = 1.-L_FOR_C3G;
+		LC_TR_GR_2[1][6] = 1.-L_FOR_C4G;
+		LC_TR_GR_2[1][7] = 1.-L_FOR_C3G;
+		LC_TR_GR_2[2][0] = 1.-L_BBS_C4G;
+		LC_TR_GR_2[2][1] = 1.-L_BBS_C3G;
+		LC_TR_GR_2[2][2] = 1.-L_BBS_C4G;
+		LC_TR_GR_2[2][3] = 1.-L_BBS_C3G;
+		LC_TR_GR_2[2][4] = 1.-L_BBS_C4G;
+		LC_TR_GR_2[2][5] = 1.-L_BBS_C3G;
+		LC_TR_GR_2[2][6] = 1.-L_BBS_C4G;
+		LC_TR_GR_2[2][7] = 1.-L_BBS_C3G;
 	}
 #   endif
 	
@@ -702,26 +471,35 @@ int main( int argc, char **argv )
 	
 #ifdef OPTIM_GLOBALS
 	DEBUG( DEBUG_INPUT_DATA,
-				   "INI  OPTIMIZE GLOBAL PARAMETERS          " << endl <<
-				   "INI        CLD_TREE                      "  << CLD_TREE << endl <<
-				   "INI        K_CAN_EXT_TREE                " << K_CAN_EXT_TREE[0] << K_CAN_EXT_TREE[1] << endl <<
-				   "INI        IGNITION_PROB                 " << IGNITION_PROB << endl <<
-				   "INI        IGNITION_PAR_2                " << IGNITION_PAR_2 << endl <<
-				   "INI        UPSILON_STEM_TREE             " << UPSILON_STEM_TREE << endl <<
-				   "INI        UPSILON_ROOT_TREE             " << UPSILON_ROOT_TREE << endl <<
-				   "INI        SIGMA_GROW_RESP_TREE          " << SIGMA_GROW_RESP_TREE[0] << SIGMA_GROW_RESP_TREE[1] << endl <<
-				   "INI        SIGMA_GROW_RESP_GRASS         " << SIGMA_GROW_RESP_GRASS[0] << SIGMA_GROW_RESP_GRASS[1] << endl <<
-				   "INI        PROB_ROOT_SUCKER              " << PROB_ROOT_SUCKER[0] << PROB_ROOT_SUCKER[1] << endl <<
-				   "INI        BETA_STEM_TREE                " << BETA_STEM_TREE << endl <<
-				   "INI        BETA_ROOT_TREE                " << BETA_ROOT_TREE << endl <<
-				   "INI        SEED_GERM_PROB                " << SEED_GERM_PROB[0] << SEED_GERM_PROB[1] << endl <<
-				   "INI        DEATH_PROB_FROST              " << DEATH_PROB_FROST[0] << DEATH_PROB_FROST[1] << endl <<
-				   "INI        DEATH_PROB_CARBON             " << DEATH_PROB_CARBON[0] << DEATH_PROB_CARBON[1] << endl <<
-				   "INI        DEATH_PROB_COMP               " << DEATH_PROB_COMP[0] << DEATH_PROB_COMP[1] << endl <<
-				   "INI        LIGHT_COMP_TREE_TREE_1        " << LIGHT_COMP_TREE_TREE_1 << endl <<
-				   "INI        LIGHT_COMP_GRASS_TREE_1       " << LIGHT_COMP_GRASS_TREE_1 << endl <<
-				   "INI        LIGHT_COMP_GRASS_GRASS_1      " << LIGHT_COMP_GRASS_GRASS_1 << endl <<
-				   "INI        LIGHT_COMP_TREE_GRASS_1       " << LIGHT_COMP_TREE_GRASS_1 << endl <<
+				   "INI  OPTIMIZE GLOBAL PARAMETERS    " << endl <<
+				   "INI        DEATH_PROB_FROST        "  << setw(14) << DEATH_PROB_FROST[0]  << setw(14) << DEATH_PROB_FROST[1]  << setw(14) << DEATH_PROB_FROST[2] << endl <<
+				   "INI        DEATH_PROB_CARBON       "  << setw(14) << DEATH_PROB_CARBON[0] << setw(14) << DEATH_PROB_CARBON[1] << setw(14) << DEATH_PROB_CARBON[2] << endl <<
+				   "INI        DEATH_PROB_COMP         "  << setw(14) << DEATH_PROB_COMP[0]   << setw(14) << DEATH_PROB_COMP[1]   << setw(14) << DEATH_PROB_COMP[2] << endl <<
+				   "INI        IGNITION_PROB           "  << setw(14) << IGNITION_PROB << endl <<
+				   "INI        IGNITION_PAR_2          "  << setw(14) << IGNITION_PAR_2 << endl <<
+				   "INI        L_SAV_SAV               "  << setw(14) << L_SAV_SAV << endl <<
+				   "INI        L_SAV_FOR               "  << setw(14) << L_SAV_FOR << endl <<
+				   "INI        L_SAV_BBS               "  << setw(14) << L_SAV_BBS << endl <<
+				   "INI        L_FOR_SAV               "  << setw(14) << L_FOR_SAV << endl <<
+				   "INI        L_FOR_FOR               "  << setw(14) << L_FOR_FOR << endl <<
+				   "INI        L_FOR_BBS               "  << setw(14) << L_FOR_BBS << endl <<
+				   "INI        L_BBS_SAV               "  << setw(14) << L_BBS_SAV << endl <<
+				   "INI        L_BBS_FOR               "  << setw(14) << L_BBS_FOR << endl <<
+				   "INI        L_BBS_BBS               "  << setw(14) << L_BBS_BBS << endl <<
+				   "INI        L_C4G_SAV               "  << setw(14) << L_C4G_SAV << endl <<
+				   "INI        L_C4G_FOR               "  << setw(14) << L_C4G_FOR << endl <<
+				   "INI        L_C4G_BBS               "  << setw(14) << L_C4G_BBS << endl <<
+				   "INI        L_C3G_SAV               "  << setw(14) << L_C3G_SAV << endl <<
+				   "INI        L_C3G_FOR               "  << setw(14) << L_C3G_FOR << endl <<
+				   "INI        L_C3G_BBS               "  << setw(14) << L_C3G_BBS << endl <<
+				   "INI        L_C4G_C4G               "  << setw(14) << L_C4G_C4G << endl <<
+				   "INI        L_C3G_C3G               "  << setw(14) << L_C3G_C3G << endl <<
+				   "INI        L_SAV_C4G               "  << setw(14) << L_SAV_C4G << endl <<
+				   "INI        L_SAV_C3G               "  << setw(14) << L_SAV_C3G << endl <<
+				   "INI        L_FOR_C4G               "  << setw(14) << L_FOR_C4G << endl <<
+				   "INI        L_FOR_C3G               "  << setw(14) << L_FOR_C3G << endl <<
+				   "INI        L_BBS_C4G               "  << setw(14) << L_BBS_C4G << endl <<
+				   "INI        L_BBS_C3G               "  << setw(14) << L_BBS_C3G << endl <<
 				   "INI -------------------------------------------------------------------------------------------------------------------------------")
 #endif
 	
@@ -734,7 +512,7 @@ int main( int argc, char **argv )
 //     for ( int kkk=0; kkk<12; kkk++ ) IData.reh_[kkk] *= 2.;
 // 	cout << IData.soil_N_ << "  " << IData.soil_C_ << "  " << endl;
     
-	if ( IData.soil_N_<0 || IData.reh_[0]<0 || IData.theta_wp_[0]<0 )
+	if ( IData.soil_N_[0]<0 || IData.reh_[0]<0 || IData.theta_wp_[0]<0 )
 	{
 		cout << "INI ERROR: Cannot simulate the ocean, abort simulation: " << longitude << " " << latitude << endl << endl;
 		return 1;
@@ -786,13 +564,13 @@ int main( int argc, char **argv )
 	
 	if      ( i_scen== 0 ) cs_tmp_file_name = IN_DATA_HOME + "ClimateChange/tmp_tod.txt";
 	else if ( i_scen== 1 ) cs_tmp_file_name = IN_DATA_HOME + "ClimateChange/tmp_A1B.txt";
-	else if ( i_scen== 7 ) cs_tmp_file_name = IN_DATA_HOME + "ClimateChange/tmp_B1.txt";
+// 	else if ( i_scen== 7 ) cs_tmp_file_name = IN_DATA_HOME + "ClimateChange/tmp_B1.txt";
 	else if ( i_scen==10 ) cs_tmp_file_name = IN_DATA_HOME + "ClimateChange/tmp_yyy.txt";   // constant temperature
 	else if ( i_scen==11 ) cs_tmp_file_name = IN_DATA_HOME + "ClimateChange/tmp_yyy.txt";
 	else if ( i_scen==20 ) cs_tmp_file_name = IN_DATA_HOME + "ClimateChange/tmp_xxx.txt";   // hysteresis loop for temperature
 	else if ( i_scen==21 ) cs_tmp_file_name = IN_DATA_HOME + "ClimateChange/tmp_xxx.txt";   // hysteresis loop for temperature
 	else if ( i_scen==30 ) cs_tmp_file_name = IN_DATA_HOME + "ClimateChange/tmp_yyy.txt";   // constant temperature
-	else if ( i_scen== 2 || i_scen==3 || i_scen==4 || i_scen==5 || i_scen==6 )
+	else if ( i_scen== 2 || i_scen==3 || i_scen==4 || i_scen==5 || i_scen==6 || i_scen==7 )
 	{
 		int    cs_y_cnt = 0;
 // 		double cs_x_coo = 52.5;
@@ -818,6 +596,8 @@ int main( int argc, char **argv )
 		                                   + (string)cs_tmp_x + "_" + (string)cs_tmp_y + ".dat";
 		if ( i_scen== 6 ) cs_tmp_file_name = IN_DATA_HOME + (string)"ClimateChange/temp_files/SRA1B_tas_"
 		                                   + (string)cs_tmp_x + "_" + (string)cs_tmp_y + ".dat";
+		if ( i_scen== 7 ) cs_tmp_file_name = IN_DATA_HOME + (string)"ClimateChange/temp_files/SRB1_tas_"
+											+ (string)cs_tmp_x + "_" + (string)cs_tmp_y + ".dat";
 	}
 	
 	DEBUG( DEBUG_INPUT_DATA,
@@ -886,7 +666,6 @@ int main( int argc, char **argv )
 		cout << "INI ERROR: Cannot open precipitation file " << cs_pre_file_name << ", abort simulation." << endl << endl;
 		return 1;
 	}
-	
 	
 	
 	double cs_preassure;
@@ -995,7 +774,8 @@ int main( int argc, char **argv )
 		tmp_min    = MyMin( IData.tmp_min_[ii], tmp_min );
 		sun_mean  += IData.sun_[ii];
 		hum_mean  += IData.reh_[ii];
-//          cout << IData.A012C3_[ii] << "  " << IData.A012C4_[ii] << endl;
+// 		cout << setw(14) << IData.tmp_min_[ii] << endl;
+// 		cout << setw(14) << IData.A012C3_[ii] << setw(14) << IData.A012C4_[ii] << setw(14) << IData.A012C3_[ii]/IData.A012C4_[ii] << endl;
 	}
 	
 	A0_max_C3_day *= 31;
@@ -1005,8 +785,10 @@ int main( int argc, char **argv )
 	tmp_mean      /= 12.;
 	sun_mean      /= 12.;
 	hum_mean      /= 12.;
-	
-	cout << A0C3_mean << " " << A0C4_mean << endl;
+	gs_C3_global  /= 12.;
+	gs_C4_global  /= 12.;
+
+// 	cout << setw(14) << A0C3_mean << setw(14) << gs_C3_global << setw(14) << A0C4_mean << setw(14) << gs_C4_global << endl;
 	
 	GetNetRadiation( latitude, IData.sun_[month_in_year], IData.tmp_max_[month_in_year],
 					 IData.tmp_min_[month_in_year], IData.eA12_[month_in_year],
@@ -1032,30 +814,48 @@ int main( int argc, char **argv )
 	clTreePop MyTreePop( IData.depth_[IData.soil_layers_-1] );
 	clGrassPop MyGrassPop;
 	
-	int tree_type = TR_SAV;          // NEW CODE
-	if ( drand48()<=PROB_FOREST_TREE ) tree_type = TR_FOR;
-	MyTreePop.addFirstTree( 100., tree_type );
 	
-	if ( num_of_trees>1 )
+	MyTreePop.addFirstTree( 100., TR_SAV );
+	MyTreePop.addTree(      100., TR_FOR );
+	MyTreePop.addTree(      100., TR_BBS );
+	if ( with_fire==1 )
 	{
-// 		MyTreePop.addTree( 100., 1 );
-		for ( int count_trees=2; count_trees<=num_of_trees; count_trees++ )
-		{
-			tree_type = TR_SAV;
-// 			#ifndef S_CLIM_NO_FOREST_TREES
-			if ( drand48()<=PROB_FOREST_TREE ) tree_type = TR_FOR;
-// 			#endif
-			MyTreePop.addTree( 150.*drand48(), tree_type );
-		}
+		for ( int count_trees=0; count_trees<3000; count_trees++ ) MyTreePop.addTree( 50.*drand48(), TR_BBS );
+		for ( int count_trees=1; count_trees<  10; count_trees++ ) MyTreePop.addTree( 50.*drand48(), TR_SAV );
+		for ( int count_trees=0; count_trees<  10; count_trees++ ) MyTreePop.addTree( 50.*drand48(), TR_FOR );
+	}
+	else
+	{
+		for ( int count_trees=1; count_trees<200; count_trees++ ) MyTreePop.addTree( 50.*drand48(), TR_SAV );
+		for ( int count_trees=0; count_trees<200; count_trees++ ) MyTreePop.addTree( 50.*drand48(), TR_FOR );
+		for ( int count_trees=0; count_trees< 25; count_trees++ ) MyTreePop.addTree( 50.*drand48(), TR_BBS );
 	}
 	
-	MyGrassPop.addGrass( INIT_MASS_GRASS, GR_C4_SAV );  // C4 savanna tree sub-canopy
-	MyGrassPop.addGrass( INIT_MASS_GRASS, GR_C4_OPN );  // C4 between canopy
-	MyGrassPop.addGrass( INIT_MASS_GRASS, GR_C4_FOR );  // C4 forest tree sub-canopy
-	MyGrassPop.addGrass( INIT_MASS_GRASS, GR_C3_SAV );  // C3 savanna tree sub-canopy
-	MyGrassPop.addGrass( INIT_MASS_GRASS, GR_C3_OPN );  // C3 between canopy
-	MyGrassPop.addGrass( INIT_MASS_GRASS, GR_C3_FOR );  // C3 forest tree sub-canopy
 	
+	
+/*	MyTreePop.addTree(      100., TR_FOR);
+	MyTreePop.addTree(      100., TR_BBS);
+	
+	if ( num_of_trees>NUM_TR_TYPES )
+	{
+		for ( int count_trees=NUM_TR_TYPES; count_trees<num_of_trees; count_trees++ )
+		{
+			if ( with_fire==0 ) MyTreePop.addTree( 150.*drand48(), count_trees%NUM_TR_TYPES );
+			if ( with_fire==1 ) MyTreePop.addTree( 150.*drand48(), TR_BBS );
+		}
+	}*/
+	
+	MyGrassPop.addGrass( INIT_MASS_GRASS, GR_C4OPN );  // C4 between canopy
+	MyGrassPop.addGrass( INIT_MASS_GRASS, GR_C3OPN );  // C3 between canopy
+	
+	MyGrassPop.addGrass( INIT_MASS_GRASS, GR_C4SAV );  // C4 savanna tree sub-canopy
+	MyGrassPop.addGrass( INIT_MASS_GRASS, GR_C3SAV );  // C3 savanna tree sub-canopy
+	
+	MyGrassPop.addGrass( INIT_MASS_GRASS, GR_C4FOR );  // C4 forest tree sub-canopy
+	MyGrassPop.addGrass( INIT_MASS_GRASS, GR_C3FOR );  // C3 forest tree sub-canopy
+	
+	MyGrassPop.addGrass( INIT_MASS_GRASS, GR_C4BBS );  // C4 burning bush sub-canopy
+	MyGrassPop.addGrass( INIT_MASS_GRASS, GR_C3BBS );  // C3 burning bush sub-canopy
 	
 	
 	
@@ -1130,22 +930,24 @@ int main( int argc, char **argv )
 		if ( count_years%25==1 )
 			DEBUG(  DEBUG_YEARLY_DATA, "YEAR_LGD " <<
 					setw(5)  << "Year" <<
-					setw(12) << "Gr_above" <<
-					setw(12) << "Gr_below" <<
-					setw(12) << "Tr_above" <<
-					setw(12) << "Tr_below" <<
-					setw( 6) << "Tr_num" <<
-					setw( 6) << "Tr_new" <<
-					setw( 6) << "Tr_dead" <<
-					setw(12) << "Tr_cover" <<
-					setw(12) << "Tr_max_hei" <<
-					setw(12) << "Tr_mean_hei" <<
-					setw(12) << "Tr_b_area" <<
+					setw(12) << "G_above" <<
+					setw(12) << "G_below" <<
+					setw(12) << "T_above" <<
+					setw(12) << "T_below" <<
+					setw( 6) << "T_num" <<
+					setw( 6) << "T_new" <<
+					setw( 6) << "T_dead" <<
+					setw(12) << "T_cover" <<
+					setw(12) << "T_max_hei" <<
+					setw(12) << "T_mean_hei" <<
+					setw(12) << "T_b_area" <<
 					setw(12) << "MAP" <<
-					setw( 6) << "Tr_sav" <<
-					setw( 6) << "Tr_for" <<
-					setw(12) << "Tr_sav_cov" <<
-					setw(12) << "Tr_for_cov" <<
+					setw( 6) << "T_sav" <<
+					setw( 6) << "T_for" <<
+					setw( 6) << "T_bbs" <<
+					setw(12) << "T_sav_cov" <<
+					setw(12) << "T_for_cov" <<
+					setw(12) << "T_bbs_cov" <<
 					setw(12) << "C3_C4_rat"
 					)
 		
@@ -1276,15 +1078,17 @@ int main( int argc, char **argv )
 #       endif
 
 		#ifdef S_ELEPHANTS
-		if ( with_fire>=1  && count_years>150 ) GetIgnitions( Ignitions, MyTreePop.getpCanopy() );
+		if ( with_fire>=1  && count_years>150 ) GetIgnitions( Ignitions, MyTreePop.getpCanopyType(0)+MyTreePop.getpCanopyType(1) );
 		#elif defined S_CLIM_FIRE_FROM_150
-		if ( with_fire>=1  && count_years>150 ) GetIgnitions( Ignitions, MyTreePop.getpCanopy() );
+		if ( with_fire>=1  && count_years>150 ) GetIgnitions( Ignitions, MyTreePop.getpCanopyType(0)+MyTreePop.getpCanopyType(1) );
 		#elif defined S_CLIM_FIRE_FROM_600
-		if ( with_fire>=1  && count_years>600 ) GetIgnitions( Ignitions, MyTreePop.getpCanopy() );
+		if ( with_fire>=1  && count_years>600 ) GetIgnitions( Ignitions, MyTreePop.getpCanopyType(0)+MyTreePop.getpCanopyType(1) );
 		#elif defined S_CLIM_FIRE_FROM_50
-		if ( with_fire>=1  && count_years>50 ) GetIgnitions( Ignitions, MyTreePop.getpCanopy() );
+		if ( with_fire>=1  && count_years>50  ) GetIgnitions( Ignitions, MyTreePop.getpCanopyType(0)+MyTreePop.getpCanopyType(1) );
 		#else
-		if ( with_fire==1  && count_years> 30 ) GetIgnitions( Ignitions, MyTreePop.getpCanopy() );
+		// if ( with_fire==1  && count_years> 30 ) GetIgnitions( Ignitions, MyTreePop.getpCanopy() );
+		if ( with_fire==1  && count_years> 10 ) GetIgnitions( Ignitions, MyTreePop.getpCanopyType(0)+MyTreePop.getpCanopyType(1) );
+//  		if ( with_fire==1  && count_years> 3 ) GetIgnitions( Ignitions, 0.3 );
 		if ( with_fire==2  && count_years>193 ) GetIgnitions( Ignitions, 5. );   // fire suppression after 1954 EBP experiment
 #       endif
 		
@@ -1293,6 +1097,7 @@ int main( int argc, char **argv )
 		
 		evapo_sum_year		= 0;
 		rain_sum_year		= 0;
+		evapo_ref_sum_year	= 0;
 		fire_flag           = 0;
 		
 		// --------------------------------------------------------------------------------------------------------------
@@ -1303,7 +1108,6 @@ int main( int argc, char **argv )
 		{
 			
 			month_in_year = (int) floor( ((double) (day_in_year+1))/30.42 );
-// 			cout << "PREC " << setw(14) << month_in_year << setw(14) << Rain[day_in_year] << endl;
 			
 			T_fac = MaintRespTmpFac(IData.tmp_min_[month_in_year]);   // tmp function needed for respiration
 			
@@ -1313,31 +1117,27 @@ int main( int argc, char **argv )
 							 IData.tmp_min_[month_in_year], IData.eA12_[month_in_year],
 							 day_in_year, &radnet_day, &sunhrs_day );
  			
-// 			radnetsum += radnet_day;
-			
 			mmsTOkgd = MMSTOKGD_HELPER*sunhrs_day;
 			
 			if ( drand48()<IData.frost_[month_in_year] ) frost = 1;
 			else frost = 0;
 			
-			MyTreePop.RunDeathProcess(frost);
+			MyTreePop.RunDeathProcess(frost, drought_index);
 			
 			// compute reference evapotranspiration for soil decomposition (Yasso) ----------------------------------------
 			EtSiteRef = FOAPenManRef( IData.tmp_[month_in_year], IData.tmp_[(month_in_year-1)%12],
 									  IData.s12_[month_in_year], radnet_day, IData.gama12_[month_in_year],
-// 									  WindAtHeight(2.,IData.wnd_[month_in_year]),
 									  WindAtHeight(MyTreePop.getMeanHeight(),IData.wnd_[month_in_year]),
 									  IData.eS12_[month_in_year], IData.eA12_[month_in_year] );
 			
 			
 			// Evapotranspiration of soil ---------------------------------------------------------------------------------
-			if ( MyGrassPop.getAllDormant()<=3  )   // no respiration if 1/2 of grasses are active
+			if ( MyGrassPop.getAllDormant()<=4  )   // no respiration if 1/2 of grasses are active
 				EtSiteGround = 0;
 			else {
 				double gb_soil = GetgbCANOPY( IData.wnd_[month_in_year], 2.);
 				EtSiteGround   = 0.0864/2.45*exp(-4.28+11.97*MyMin(0.35,IData.theta_[0]))*IData.VPD12_[month_in_year]/gb_soil;
 			}
-			
 			
 			
 			// Evapotranspiration of grasses --------------------------------------------------------------------------------
@@ -1353,19 +1153,22 @@ int main( int argc, char **argv )
 						  SP_HEAT, IData.gama12_[month_in_year],
 						  IData.rho12_[month_in_year], IData.VPD12_[month_in_year] );  //mm/day
 			
-			//-----------------------------------------------------------------------------------------
-// 			cout << "ETR " << EtSiteGrass << " " << EtSiteTrees << endl;
 			// Evapotranspiration total
-			EtSite = EtSiteGround + EtSiteTrees + EtSiteGrass;
-			
+			EtSite = (EtSiteGround + EtSiteTrees + EtSiteGrass);
 			
 			rain_sum_year        += Rain[day_in_year];
 			evapo_sum_year       += EtSite;
+			evapo_ref_sum_year   += EtSiteRef;
+			
 			rain_sum             += Rain[day_in_year];
 			evapo_sum            += EtSite;
 			evapo_grass_sum      += EtSiteGrass;
 			evapo_soil_sum       += EtSiteGround;
 			evapo_ref_sum        += EtSiteRef;
+			
+			
+// 			cout << "XXX " << setw(14) << EtSiteRef << setw(14) << EtSite << setw(14) << Rain[day_in_year] << endl;
+			
 			
 			if ( Rain[day_in_year]>EtSite )
 			{
@@ -1379,59 +1182,69 @@ int main( int argc, char **argv )
 			
 			GetSoilTheta( diff_fc_wp, IData.theta_, IData.theta_wp_, IData.g_theta_, IData.soil_layers_ );
 			
+// 			cout << "WATER ";
+// 			for ( int l=0; l<12; l++ ) cout << setw(14) << IData.g_theta_[l];
+// 			cout << endl;
+			
+			#ifndef S_NOTREES
 			// Run tree and grass physiology.
 			MyTreePop.RunPhysiology(IData.A012C3_[month_in_year], IData.RmL12C3_[month_in_year], mmsTOkgd,
 									IData.tmp_day_[month_in_year], IData.wnd_[month_in_year],
 									IData.g_theta_, ca_par_preassure, IData.atm_press_,
-// 									IData.reh_[month_in_year], MyGrassPop.getHeightOpn(),       MyGrassPop.getHeightOpn(),
-									IData.reh_[month_in_year], MyGrassPop.getHeight(GR_C4_OPN), MyGrassPop.getHeight(GR_C3_OPN),
+									IData.reh_[month_in_year], MyGrassPop.getHeight(GR_C4OPN), MyGrassPop.getHeight(GR_C3OPN),
 									day_in_year, month_in_year, IData.theta_[0], IData.theta_fc_[1], IData.theta_wp_[1],
-									T_fac, frost, MyGrassPop.getC34Ratio(), IData.thickness_, IData.soil_layers_  );
+									T_fac, frost, MyGrassPop.getC34Ratio(), IData.thickness_, IData.soil_layers_, drought_index  );
+			#endif
 			
+			#ifndef S_NOGRASS
+			for ( int grphys=0; grphys<NUM_TR_TYPES; grphys++ )
+			{
+				p_canopy_vec[grphys] = MyTreePop.getpCanopyType(    grphys );
+				t_height_vec[grphys] = MyTreePop.getMeanHeightType( grphys );
+			}
 			
-#ifndef S_NOGRASS
 			MyGrassPop.RunPhysiology( IData.A012C4_[month_in_year],  IData.A012C3_[month_in_year],
 									  IData.RmL12C4_[month_in_year], IData.RmL12C3_[month_in_year], mmsTOkgd,
 									  IData.tmp_day_[month_in_year], IData.wnd_[month_in_year],
 									  IData.g_theta_, ca_par_preassure, IData.atm_press_,
-									  IData.reh_[month_in_year], MyTreePop.getMeanSavHeight(),
-									  MyTreePop.getMeanForHeight(), T_fac, frost, MyTreePop.getpCanopySav(),
-									  MyTreePop.getpCanopyFor(), IData.thickness_, day_in_year );
-									  
-									  
-		 void RunPhysiology( double p_can_sav, double p_can_for ); //NOTE what is that???
-														  
+									  IData.reh_[month_in_year], T_fac, frost, t_height_vec, p_canopy_vec, IData.thickness_, day_in_year );
 			#endif
 			
 			
 			
-			
-// 			cout << setw(14) << MyGrassPop.getFuelMoisture()*IData.reh_[month_in_year]/100. << setw(14) << MyGrassPop.getFuelMoisture()*(IData.g_theta_[0]+IData.g_theta_[1]+IData.g_theta_[2]+IData.g_theta_[3])/4. << setw(14) << MyGrassPop.getFuelMoisture()*(IData.pwet_[month_in_year]+IData.reh_[month_in_year]/100.) << setw(14) << MyGrassPop.getFuelMoisture() << endl;
-			
 #			ifdef S_FIRE_FROM_FILE
 			if ( count_years==FIRE_year && day_in_year==FIRE_day )
 #           else
+			//if ( Ignitions[day_in_year]>0 )
 			if ( Ignitions[day_in_year]>0 )
 #           endif
 			{
 				double fire_intensity;
 				
-				double dead_fuel = MyGrassPop.getDryBiomassForFire();   // in kg/m^2
-								  + MyTreePop.getDryBiomassForFire();   // in kg/m^2
+				double dead_fuel = MyGrassPop.getDryBiomassForFire() +  MyTreePop.getDryBiomassForFire();   // in kg/m^2
+				double live_fuel = MyGrassPop.getWetBiomassForFire() +  MyTreePop.getWetBiomassForFire();   // in kg/m^2
+// 				double dead_fuel = MyGrassPop.getDryBiomassForFire() ;   // in kg/m^2
+// 				double live_fuel = MyGrassPop.getWetBiomassForFire() +  MyTreePop.getWetBiomassForFire();   // in kg/m^2
 				
-				double live_fuel  = MyGrassPop.getWetBiomassForFire();
+// 				double dead_fuel = MyGrassPop.getDryBiomassForFire();   // in kg/m^2
+// 				double live_fuel = MyGrassPop.getWetBiomassForFire() +  MyTreePop.getWetBiomassForFire() +  MyTreePop.getDryBiomassForFire();   // in kg/m^2
 				
-				double live_fuel_moisture = IData.reh_[month_in_year]/100.+IData.pwet_[month_in_year];
+// 				double live_fuel_moisture = IData.reh_[month_in_year]/100.+IData.pwet_[month_in_year];
+				double live_fuel_moisture = IData.reh_[month_in_year]/100.;
 				
 				double dead_fuel_moisture = MyGrassPop.getFuelMoisture()*live_fuel_moisture;
 				
+				string fty;
+				if ( MyTreePop.getpCanopyType(TR_BBS)<BBS_FIRE_COVER ) fty="sav";
+				else fty="fyn";
 				
-#				ifdef S_FIRE_FROM_FILE
+				#ifdef S_FIRE_FROM_FILE
 				fire_intensity = FIRE_intensity;
-#				else
-				fire_intensity = LightFire( dead_fuel, live_fuel, dead_fuel_moisture, live_fuel_moisture,
-											IData.wnd_[month_in_year], day_in_year );
-#				endif
+				#else
+				fire_intensity = LightFire( dead_fuel, live_fuel, dead_fuel_moisture, live_fuel_moisture, IData.wnd_[month_in_year], day_in_year,
+											IData.reh_[month_in_year], IData.tmp_[month_in_year], IData.theta_[0]+IData.theta_[1]+IData.theta_[2] );
+				
+				#endif
 				
 				if ( fire_intensity>0 )
 				{
@@ -1488,7 +1301,8 @@ int main( int argc, char **argv )
 							<< setw(13) << cc_coarse
 							<< setw(13) << cc_heavy
 							<< setw(13) << cc_tk_helper
-						 )
+							<< setw(13) << fty
+							)
 					
 #					ifdef S_FIRE_FROM_FILE
 					FIRE_file >> FIRE_year >> FIRE_day >> FIRE_intensity;
@@ -1650,7 +1464,12 @@ int main( int argc, char **argv )
 		if ( count_years>100 )
 			total_basal_area += MyTreePop.getMaxBasalAreaYearMean();
 		
-// 		cout << "GSL" << setw(14) << MyTreePop.getActiveDays() << setw(14) << MyGrassPop.getActiveDays() << setw(14) << rain_sum_year << endl;
+		
+		for ( int i=0; i<9; i++ ) drought_index_vec[i] = drought_index_vec[i+1];
+		drought_index_vec[9] = (rain_sum_year-evapo_ref_sum_year)/rain_sum_year;
+		drought_index = 0.;
+		for ( int i=0; i<10; i++ ) drought_index += drought_index_vec[i];
+		drought_index /= 10.;
 		
 		int ELFS_small_trees = 0;
 		int ELFS_large_trees = 0;
@@ -1677,12 +1496,18 @@ int main( int argc, char **argv )
 						setw(12) << MyTreePop.getMeanHeight() <<
 						setw(12) << MyTreePop.getBasalArea() <<
 						setw(12) << rain_sum_year <<
-						setw( 6) << MyTreePop.getSavTreeNum() <<
-						setw( 6) << MyTreePop.getForTreeNum() <<
-						setw(12) << MyTreePop.getpCanopySav() <<
-						setw(12) << MyTreePop.getpCanopyFor() <<
-						setw(12) << MyGrassPop.getC34Ratio() 
-		)
+						setw( 6) << MyTreePop.getTreeNumType(TR_SAV) <<
+						setw( 6) << MyTreePop.getTreeNumType(TR_FOR) <<
+						setw( 6) << MyTreePop.getTreeNumType(TR_BBS) <<
+						setw(12) << MyTreePop.getpCanopyType(TR_SAV) <<
+						setw(12) << MyTreePop.getpCanopyType(TR_FOR) <<
+						setw(12) << MyTreePop.getpCanopyType(TR_BBS) <<
+						setw(12) << MyGrassPop.getC34Ratio() <<
+// 						setw(12) << (rain_sum_year-evapo_sum_year    )/rain_sum_year <<
+						setw(12) << drought_index
+// 						setw(12) << (rain_sum_year-evapo_ref_sum_year)/rain_sum_year
+						//setw(12) << (rain_sum-evapo_ref_sum)/rain_sum/count_years
+						)
 		
 		
 		

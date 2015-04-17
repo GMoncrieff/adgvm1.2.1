@@ -21,9 +21,9 @@ class clTree
 		int		number_;							// number of tree
 		int		age_;								// age of tree in days
 		int		reprod_strategy_;					// reproduction strategy, 0=seeds, 1=root sucker
-		int		tree_type_;							// 0=savanna tree, 1=forest tree
+		int		tree_type_;							// 0=savanna tree, 1=forest tree, 2=burning bush
 		int		active_days_;						// counts active days per year
-		int		firedead_;						// fire mortality flag
+		int		firedead_;				    		// fire mortality flag
 		
 		double	Bl_;    							// leaf biomass, kg per plant
 		double	Br_;    							// root biomass, kg per plant
@@ -40,6 +40,9 @@ class clTree
 		double	Rma_;
 		double	Rgr_;
 		
+		double	leaf_return_flag_;
+		double	leaf_return_;
+		double	nutrient_lim_;
 		double	Qsum_;
 		double	Qi_;
 		double	Ci_;
@@ -55,9 +58,12 @@ class clTree
 		double	canopy_radius_;
 		double	canopy_area_;						// canopy area m^2
 		double	LAI_;	 							// leaf area index of this tree
-		double	site_param_;						// "quality" of site where plant growth
 		double	stem_area_;							// in m^2
 		double  max_root_depth_;					// maximum rooting depth
+		
+		double	ccc_;
+		double	ccc_cum_;
+		
 		
 	private:
 		void calDroot();
@@ -84,7 +90,7 @@ class clTree
 		clTree( ) {}
 		clTree( double init_mass, double pCanopy, int popsize, int number, int tree_type_, double max_root_depth );
 		~clTree();
-		int  WillIDie(int frost);
+		int  WillIDie(int frost, double drought_index);
 		int  WillIDieAfterFire();
 		void setStateAfterElephants();
 		void setStateAfterFire( double intensity, double patchiness, double cc_fine, double cc_tk_helper );
@@ -112,6 +118,7 @@ class clTree
 		double getGPP()				{ return gpp_; }
 		double getRma()				{ return Rma_; }
 		double getRgr()				{ return Rgr_; }
+		double getLeafReturn()		{ return leaf_return_; }
 		double getQsum()			{ return Qsum_; }
 		double getQi()				{ return Qi_; }
 		double getCi()				{ return Ci_; }
@@ -130,6 +137,9 @@ class clTree
 		double getLAI()				{ return LAI_; }
 		int    getTreeType()		{ return tree_type_; }
 		int    getActiveDays()		{ return active_days_; }
+		
+		double getCCC()				{ return ccc_; }
+		double getCCCcum()			{ return ccc_cum_; }
 		
 #		ifdef S_ELEPHANTS
 		void   setBl(  double bm )	{ Bl_  = bm; return; }
@@ -162,6 +172,10 @@ clTree::clTree( double init_mass, double pCanopy, int popsize, int number, int t
 	gpp_			 = 0.;
 	Rma_			 = 0.;
 	Rgr_			 = 0.;
+// 	leaf_return_	 = 0.;
+	leaf_return_	 = LEAF_RETURN[tree_type];
+	leaf_return_flag_= 0.;
+	nutrient_lim_	 = 1.;
 	Qsum_			 = 1.;
 	Qi_				 = 1.;
 	Ci_				 = 1.;
@@ -173,11 +187,14 @@ clTree::clTree( double init_mass, double pCanopy, int popsize, int number, int t
 	Aindex_			 = .2;
 	canopy_area_	 = 0.01;
 	stem_area_		 = 0.00001;
-	site_param_		 = 0;
 	tree_type_		 = tree_type;
 	firedead_		=0;
 	active_days_	 = 0;
 	max_root_depth_  = max_root_depth;
+	
+	ccc_			= 0.;
+	ccc_cum_		= 0.;
+	
 	
 	reprod_strategy_	= 0;
 	if ( drand48()<PROB_ROOT_SUCKER[tree_type_] ) reprod_strategy_ = 1;
@@ -186,8 +203,8 @@ clTree::clTree( double init_mass, double pCanopy, int popsize, int number, int t
 	UpdateAllometry();
 	
 	// we determine a neighbour tree for light competition.
-	double has_comp = drand48();
-	if ( has_comp > COMP_PAR_1-COMP_PAR_2*pCanopy-popsize*COMP_PAR_3 )
+// 	double has_comp = ;
+	if ( tree_type_!=TR_BBS && drand48() > COMP_PAR_1-COMP_PAR_2*pCanopy-popsize*COMP_PAR_3 )
 		competitor_ = (int) floor(popsize*drand48());
 }
 
@@ -201,7 +218,6 @@ clTree::~clTree()
 
 void clTree::calDroot()
 {
-// 	Droot_ = MyMin( MAX_ROOT_DEP_TREE, CylinderDepth( Br_, MIN_ROOT_RAD_TREE, ROOT_DENSITY_TREE, MAX_ROOT_DEP_TREE) );
 	Droot_ = CylinderDepth( Br_, MIN_ROOT_RAD_TREE, ROOT_DENSITY_TREE, max_root_depth_ );
 	
 	return;
@@ -212,7 +228,10 @@ void clTree::calDroot()
 // Standard power function, based on fits to Niklas&Enquist data, estimates the plant height from the stem biomass.
 void clTree::calPlantHeight()
 {
-	height_ = HEIGHT_C1_TREE[tree_type_]*pow(Bs_+Bl_,HEIGHT_C2_TREE[tree_type_]);
+// 	height_ = HEIGHT_C1_TREE[tree_type_]*pow(Bs_+Bl_,HEIGHT_C2_TREE[tree_type_]);
+	
+	height_ = exp( (log(Bs_+Bl_)+HEIGHT_C1_TREE[tree_type_])/HEIGHT_C2_TREE[tree_type_] );
+	
 #   ifdef S_AUSTRALIA
 	height_ = exp( (log(Bs_)+3.5413)/3.5337 );               // Williams 2005
 #   endif
@@ -245,9 +264,8 @@ void clTree::calCanopyArea()
 // -------------------------------------------------------------------------------------------------------------------
 void clTree::calStemArea()
 {
-// 	stem_area_ = STEM_AREA_C1/STEM_AREA_C2*height_;		// from Higgins 2007 Ecology; 200 to get radius in m
 	stem_area_ = STEM_AREA_HELPER[tree_type_]*height_;		// from Higgins 2007 Ecology; 200 to get radius in m
-	stem_area_ = stem_area_*stem_area_*3.141593;		//  from Higgins 2007 Ecology;
+	stem_area_ = stem_area_*stem_area_*3.141593;			// from Higgins 2007 Ecology;
 #	ifdef S_AUSTRALIA
 	stem_area_ = exp( (log( Bs_ )+2.2111)/2.4831 )/100./2.;   // stem radius in m, Williams 2005
 	stem_area_ = stem_area_*stem_area_*3.141593;              // stem area in m^2, Williams 2005
@@ -259,7 +277,7 @@ void clTree::calStemArea()
 // compute leaf area index
 void clTree::calPlantLAI()
 {
-	LAI_ = Bl_*SLA_TREE[tree_type_]/MyMax(0.1,canopy_area_)+MIN_LAI;
+	LAI_ = Bl_*SLA_TREE[tree_type_]/MyMax(0.1,canopy_area_);//+MIN_LAI;
 	return;
 }
 
@@ -279,14 +297,23 @@ void clTree::UpdateAllometry()
 
 
 // ---------------------------------------------------------------------------------------------------------------
-int clTree::WillIDie(int frost)
+int clTree::WillIDie(int frost, double drought_index)
 {
 	int will_I       = 0;
 	
-	death_prob_ = DEATH_PROB_FROST[tree_type_]*(double) frost;
-// 	if ( frost==1 )                     death_prob_ += DEATH_PROB_FROST[tree_type_];
-	if ( Dormant_==0 && nCGT_<0. )      death_prob_ += DEATH_PROB_CARBON[tree_type_];
-	if ( competitor_>0 )                death_prob_ += DEATH_PROB_COMP[tree_type_];
+// 	death_prob_ = DEATH_PROB_FROST[tree_type_]*(double) frost;
+	death_prob_ = 0.;
+// 	if ( Dormant_==0 && nCGT_<0. ) { death_prob_ += DEATH_PROB_CARBON[tree_type_]; }//; cout << "MORT" << tree_type_ << setw(5) << GLOB_YEAR << " nCGT" << endl; }
+// 	if ( competitor_>0 )           { death_prob_ += DEATH_PROB_COMP[tree_type_]; }//  cout << "MORT" << tree_type_ << setw(5) << GLOB_YEAR << " comp" << endl; }
+// // 	if ( leaf_return_flag_>0 )     { death_prob_ += DEATH_PROB_COMP[tree_type_]; }//  cout << "MORT" << tree_type_ << setw(5) << GLOB_YEAR << " retc" << endl; }
+// 	if ( drought_index<(-1.) )     { death_prob_ += DEATH_PROB_DROUGHT[tree_type_]; }
+
+
+	if ( frost==1 )      death_prob_ += DEATH_PROB_FROST[tree_type_];
+	if ( competitor_>0 ) death_prob_ += DEATH_PROB_COMP[tree_type_];
+	if ( ccc_cum_   <0 ) death_prob_ += DEATH_PROB_CARBON[tree_type_];
+
+
 	
 	if ( drand48() < death_prob_ ) will_I = 1;
 	
@@ -294,14 +321,16 @@ int clTree::WillIDie(int frost)
 	will_I = 0;
 #	endif
 	
-	if ( number_<2 && will_I==1 )
-	{
+	if ( number_<NUM_TR_TYPES && will_I==1 )  // one individual of each tree type always survives,
+	{                                         // "mortality" of these trees only means biomass reduction
 		Bld_ += 0.99*Bl_;
 		Bsd_ += 0.99*Bs_;
 		Brd_ += 0.99*Br_;
 		Bl_  *= 0.01;
 		Bs_  *= 0.01;
 		Br_  *= 0.01;
+		nutrient_lim_ = 1.;
+		leaf_return_  = LEAF_RETURN[tree_type_];
 	}
 	
 	return will_I;
@@ -318,7 +347,7 @@ int clTree::WillIDieAfterFire()
 	will_I = 0;
 	#	endif
 	
-	if ( number_<2 && will_I==1 )
+	if ( number_<NUM_TR_TYPES && will_I==1 )
 	{
 		Bld_ += 0.99*Bl_;
 		Bsd_ += 0.99*Bs_;
@@ -326,6 +355,7 @@ int clTree::WillIDieAfterFire()
 		Bl_  *= 0.01;
 		Bs_  *= 0.01;
 		Br_  *= 0.01;
+		nutrient_lim_ = 1.;
 	}
 	
 	return will_I;
@@ -338,7 +368,6 @@ int clTree::WillIDieAfterFire()
 double clTree::AllocRoot()
 {
 	return  (A0_ROOT_TREE_HELPER[tree_type_] - Gw_)*alloc_denom_;
-	// 	return  (1.+A0_ROOT_TREE[tree_type_]     - Gw_)*alloc_denom_;
 }
 
 // -------------------------------------------------------------------------------------------------------------------
@@ -346,7 +375,6 @@ double clTree::AllocRoot()
 double clTree::AllocStem()
 {
 	return  (A0_STEM_TREE_HELPER[tree_type_] - Qi_)*alloc_denom_;
-	// 	return  (1.+A0_STEM_TREE[tree_type_]     - Qi_)*alloc_denom_;
 }
 
 // -------------------------------------------------------------------------------------------------------------------
@@ -363,11 +391,7 @@ void clTree::AllocateCorbon()
 	if ( Dormant_==0 )
 	{
 		double npp=gpp_-Rgr_;
-		// 		alloc_denom_ = 1./(3.+A0_ROOT_TREE[tree_type_]+A0_STEM_TREE[tree_type_] - Qi_ - Gw_ - Ci_);
 		alloc_denom_ = 1./(ALLOC_DENOM_HELPER[tree_type_]           - Qi_ - Gw_ - Ci_);
-// 		Bl_ += nCGT_*AllocLeaf();
-// 		Bs_ += nCGT_*AllocStem();
-// 		Br_ += nCGT_*AllocRoot();
 		Bl_ += (npp*AllocLeaf());
 		Bs_ += (npp*AllocStem());
 		Br_ += (npp*AllocRoot());
@@ -390,15 +414,12 @@ void clTree::RunPhysiology( double A0, double RmL, double mmsTOkgd, double T, do
 	double RmLc;			// canopy leaf maint resp
 	double RmLg;			// leaf maint resp in kg/day/plant
 	
+	ccc_ = Bl_+Bs_+Br_;
+	
+	
 	gpp_                = 0.;
 	Rma_                = 0.;
 	Rgr_                = 0.;
-	
-	if ( day==0 )
-	{
-// 		if (number_==0 )cout << setw(14) << active_days_ << endl;
-		active_days_ = 0;
-	}
 	
 	// water availability
 	calSoilMoisture( G_theta_weighted, thickness );
@@ -408,15 +429,15 @@ void clTree::RunPhysiology( double A0, double RmL, double mmsTOkgd, double T, do
 	
 	if ( drand48() > C34_ratio ) {          // trees must compete with C3 grasses or C4 grasses
 		if ( C4_grass_height > height_ )    // C4 grass competition
-			Qi_ *= LICMP_1[GR_C4_OPN+2][tree_type_]/C4_grass_height*height_ + LICMP_2[GR_C4_OPN+2][tree_type_];
+			Qi_ *= LC_C4_TR_1[tree_type_]/C4_grass_height*height_ + LC_C4_TR_2[tree_type_];
 	}
 	else {
 		if ( C3_grass_height > height_ )    // C3 grass competition
-			Qi_ *= LICMP_1[GR_C3_OPN+2][tree_type_]/C3_grass_height*height_ + LICMP_2[GR_C3_OPN+2][tree_type_];
+			Qi_ *= LC_C3_TR_1[tree_type_]/C3_grass_height*height_ + LC_C3_TR_2[tree_type_];
 	}
 	
 	if ( comp_height  > height_ )           // tree-tree competition
-		Qi_ *= LICMP_1[comp_type][tree_type_]/comp_height*height_ + LICMP_2[comp_type][tree_type_];
+		Qi_ *= LC_TR_TR_1[comp_type][tree_type_]/comp_height*height_ + LC_TR_TR_2[comp_type][tree_type_];
 	
 	
 	Qsum_ = Qi_*calQsum();
@@ -424,6 +445,8 @@ void clTree::RunPhysiology( double A0, double RmL, double mmsTOkgd, double T, do
 	
 	// conopy photosynthesis
 	Acs   = A0*Qsum_*Gw_;		// water and light stressed canopy photosynthesis (=A0*Qsum*Gw) (mmol/m^2/s)
+	
+	Acs  *= nutrient_lim_;
 	
 	// carbon gain (gross primary production)
 	gpp_  = Acs*mmsTOkgd*(double)(1-Dormant_);  // water and light stressed carbon gain, kg/day/m^2, gpp=0 if plant is dormant
@@ -434,29 +457,34 @@ void clTree::RunPhysiology( double A0, double RmL, double mmsTOkgd, double T, do
 	RmLc = R_MAINT_RESP_TR[tree_type_]*Acs; //maint resp leaf is now function of water stress and canopy photosynthesis (mmol/m^2/s)
 	RmLg = RmLc*mmsTOkgd;                   //leaf maint resp in kg/day/plant
 	RmLg = MyMax( RmLg, RmLg*canopy_area_ );
-	RmS  = MaintRespFast( BETA_STEM_TREE*Bs_, BETA_N, UPSILON_STEM_TREE, T_fac );
-	RmR  = MaintRespFast( BETA_ROOT_TREE*(Br_*(1.-bl_bs_ratio)), BETA_N, UPSILON_ROOT_TREE, T_fac )   // coarse roots
-		                                + Br_*    bl_bs_ratio*RmLg;                                   // fine roots
+	RmS  = MaintRespFast( BETA_STEM_TREE*Bs_, BETA_N, UPSILON_STEM_TREE[tree_type_], T_fac );
+	RmR  = MaintRespFast( BETA_ROOT_TREE*(Br_*(1.-bl_bs_ratio)), BETA_N, UPSILON_ROOT_TREE[tree_type_], T_fac )   // coarse roots
+	                                    + Br_*    bl_bs_ratio*RmLg;                                   // fine roots
 	
-	Rgr_  = gpp_*SIGMA_GROW_RESP_TREE[tree_type_];
+	
+	if ( Dormant_==0 ) leaf_return_ += ( gpp_ - RmLg );
+	
+	Rgr_  = gpp_*SIGMA_GROW_RESP_TREE[tree_type_]; //*(12.-SLA_TREE[tree_type_])*0.1;
+	
 	nCGT_ = gpp_-Rgr_-RmR-RmS-RmLg;
-// 	cout << setw(14) << gpp_ << setw(14) << RmLg << setw(14) << RmS << setw(14) << RmR <<  setw(14) << endl;
-	//canopy conductance
+	
+	
 	calGb( wind );  // m/s
 	calGc( Acs, RmLc, Ca, P, rh, T );  // (mmol/m^2/s)
 	
-	double Ti;
-	if      ( tmp_min_month > TI_CONST ) Ti = 0.;
-	else                                 Ti = 1.5*(-1.+tmp_min_month/TI_CONST);
+	double Ti = 0;
+	if      ( tmp_min_month > TI_CONST[tree_type_] ) Ti = 0.;
+ 	else                                 Ti = 1.5*(-1.+tmp_min_month/TI_CONST[tree_type_]);
 	
-	Aindex_ = A0*( (WATER_IND_TREE[tree_type_] *G_theta_3+WATER_IND_TREE_1[tree_type_]*Gw_) + Ti ) - RmL + site_param_;
 	
+	Aindex_ = A0*( (WATER_IND_TREE[tree_type_] *G_theta_3+WATER_IND_TREE_1[tree_type_]*Gw_) + Ti ) - RmL;
+		
 	// if no carbon gain increment days without carbon gain
 	if ( Dormant_==0 && Aindex_<=STRESS_INDEX_TREE[tree_type_] )  Dneg_++;
 	// if carbon gain then reset days without carbon gain counter
-	if ( Dormant_==0 && Aindex_>STRESS_INDEX_TREE[tree_type_] )   Dneg_ = 0; 
+	if ( Dormant_==0 && Aindex_> STRESS_INDEX_TREE[tree_type_] )  Dneg_ = 0; 
 	// if dormant and carbon gain then increment dormancy break counter
-	if ( Dormant_==1 && Aindex_>STRESS_INDEX_TREE[tree_type_]  )  Dpos_++;
+	if ( Dormant_==1 && Aindex_> STRESS_INDEX_TREE[tree_type_] )  Dpos_++;
 	// if dormant and carbon gain = 0 then reset dormancy break counter
 	if ( Dormant_==1 && Aindex_<=STRESS_INDEX_TREE[tree_type_] )  Dpos_ = 0; 
 	
@@ -464,29 +492,56 @@ void clTree::RunPhysiology( double A0, double RmL, double mmsTOkgd, double T, do
 	if ( frost==1 ) { Dneg_++; Dpos_=0; }
 	
 	// if in growth stage then dpos (dormancy break counter) remains zero.
-	if ( Dormant_==0 ) Dpos_ = 0; 
-	if ( Dormant_==1 ) Dneg_ = 0;
+	if ( Dormant_==0 )
+	{
+		Dpos_ = 0;
+	}
+	if ( Dormant_==1 )
+	{
+		leaf_return_ = LEAF_RETURN[tree_type_];
+		Dneg_ = 0;
+	}
 	
 	//if days of negative nCGT > threshold then assign to dormant state
 	if ( Dneg_>=D_NEG_TREE[tree_type_] )
 	{
+// 		cout << "GGG " << tree_type_ << setw(14) << leaf_return_-LEAF_RETURN[tree_type_] << endl;
+// 		cout << "GGG " << tree_type_ << setw(14) << leaf_return_ << setw(14) << LEAF_RETURN[tree_type_] << endl;
+		
+// 		if ( number_==0)
+// 		cout << "SSS " << setw(10) << number_ << setw(3) << tree_type_ << setw(14) << GLOB_YEAR+(double)day/365. <<  setw(14) << leaf_return_ << setw(14) << active_days_ << endl;
+
+		if ( leaf_return_<0 )
+		{
+// 			cout << "GGG " << tree_type_ << setw(14) << leaf_return_ << endl;
+			leaf_return_flag_ = 1.;
+// 			nutrient_lim_ *= 0.95;	
+// 			cout << "GGG " << tree_type_ << setw(14) << leaf_return_ << setw(14) << nutrient_lim_ << endl;
+// 			if ( tree_type_==2 ) cout << "xxx" << endl;
+		}
+		
+// 		if ( GLOB_SOIL_N<600. ) nutrient_lim_ *= (GLOB_SOIL_N/600.)*0.1+0.9;
 		if (number_==0) phen_counter++;
-		Dormant_   = 1;
-		Dneg_      = 0;
-		Bld_      += (1.-REM_BM_TREE)*Bl_; // leaf abscission NOTE new version: permament turnover and litterfall
-		Bl_        = REM_BM_TREE*Bl_;      // leaf abscission NOTE new version: permament turnover and litterfall
+		active_days_ = 0;
+		Dormant_     = 1;
+		Dneg_        = 0;
+		Bld_        += (1.-REM_BM_TREE[tree_type_])*Bl_; // leaf abscission NOTE new version: permament turnover and litterfall
+		Bl_          = REM_BM_TREE[tree_type_]*Bl_;      // leaf abscission NOTE new version: permament turnover and litterfall
+// 		if (number_<3) cout << setw(5) << day << setw(7) << number_ << ", " << tree_type_ << setw(14) << leaf_return_ << " off" << endl;
 	}
 	
 	// if days of positive nCGT > threshold then move to metabolic state
 	if ( Dpos_>=D_POS_TREE[tree_type_] )
 	{
+// 		if (number_<3) cout << setw(5) << day << setw(7) << number_ << ", " << tree_type_ << " on" << endl;
+		leaf_return_flag_ = 0.;
 		Dormant_ = 0; 
 		Dpos_ = 0;
 		
 	}
 	
 	active_days_ += (1-Dormant_);
-	// 	if ( number_==0 ) cout << setw(14) << active_days_ << setw(14) << Dneg_ << setw(14) << Dpos_ << setw(14) << Dormant_ << endl;
+// 	if ( number_==0 ) cout << setw(14) << active_days_ << setw(14) << Dneg_ << setw(14) << Dpos_ << setw(14) << Dormant_ << endl;
 	
 	// maintainance respiration
 	Respirate( RmR, RmS, RmLg );
@@ -501,6 +556,18 @@ void clTree::RunPhysiology( double A0, double RmL, double mmsTOkgd, double T, do
 	UpdateAllometry();
 	
 	age_++;
+	
+// 	if ( number_==2 ) cout << "TRBBS " << tree_type_ << " " << Bl_ << " " << Bs_ << " " << Br_ << " " << height_ << endl;
+// 	if ( number_==2 && day==0 ) cout << "TRBBS " << height_ << endl;
+// 	if ( tree_type_==2 && day==0 ) cout << "TRBBS " << height_ << endl;
+
+	
+	ccc_ -= (Bl_+Bs_+Br_);
+	ccc_  = -ccc_;
+	
+	if ( day==250 ) ccc_cum_ = 0.;
+	ccc_cum_ += ccc_;
+	
 	
 	return;
 }
@@ -644,7 +711,7 @@ int clTree::getSeedProduction()
 {
 	int nSeeds = 0;
 	
-	if ( reprod_strategy_==0 && age_>3650 && nCGT_>0 )
+	if ( reprod_strategy_==0 && age_>REPROD_AGE[tree_type_] && nCGT_>0 )
 	{
 		nSeeds = (int)floor( nCGT_/(SEED_WEIGHT[tree_type_]) );
 	}
@@ -700,10 +767,8 @@ double clTree::getEt( double T, double P, double radnet_day, double s12, double 
     if ( Dormant_==1 ) return 0;
 
 	double gc_nmolar  = gNonMolar( T, gc_, P );  //gn
-// 	cout << setw(14) << gc_nmolar << setw(14) << FOAPenMan( radnet_day, gb_, gc_nmolar, s12, SP_HEAT, gama12, rho12, VPD12 ) << endl;
 	
-// 	if ( height_> 5.) cout << setw(14) << canopy_area_*FOAPenMan( radnet_day, gb_, gc_nmolar, s12, SP_HEAT, gama12, rho12, VPD12 ) << setw(14) << gc_nmolar << endl;
-    return canopy_area_*FOAPenMan( radnet_day, gb_, gc_nmolar, s12, SP_HEAT, gama12, rho12, VPD12 );  //mm/day
+	return canopy_area_*FOAPenMan( radnet_day, gb_, gc_nmolar, s12, SP_HEAT, gama12, rho12, VPD12 );  //mm/day
 }
 
 

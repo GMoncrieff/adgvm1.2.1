@@ -15,8 +15,8 @@ class clTreePop
 		int		pop_size_;
 		int 	dead_trees_;						// number of trees which died during year
 		int		new_born_;
-		int		num_of_seeds_[2];
-		int		num_of_seeds_collect_[2];
+		int		num_of_seeds_[NUM_TR_TYPES];
+		int		num_of_seeds_collect_[NUM_TR_TYPES];
 		int		count_trees_;
 		int		wet_days_;
 		double	root_bm_live_;
@@ -50,20 +50,19 @@ class clTreePop
 		double	mean_lai_;
 		double	evapotransp_;
 		
-		double	p_canopy_sav_;
-		double	p_canopy_for_;
-		double	p_canopy_tot_;
+		double	p_canopy_[NUM_TR_TYPES];				// canopy area of different tree types
+		double	p_canopy_tot_;							// total canopy area
 		
-		double	Bl_year_[3650];						// stores leaf biomasses of the 10 last years
-		double	Br_year_[3650];						// stores leaf biomasses of the 10 last years
-		double	Bs_year_[3650];						// stores leaf biomasses of the 10 last years
-		double	men_height_year_[3650];				// stores mean heights of the 10 last years
-		double	max_height_year_[3650];				// stores max. heights of the 10 last years
-		double	basal_area_year_[3650];				// stores basal areas of the 10 last years
-		double	p_canopy_sav_year_[3650];			// stores tree cover of the 10 last years, forest+savanna trees
-		double	p_canopy_for_year_[3650];			// stores tree cover of the 10 last years, forest+savanna trees
+		double	Bl_year_[3650];							// leaf biomasses of the 10 last years of all trees
+		double	Br_year_[3650];							// leaf biomasses of the 10 last years of all trees
+		double	Bs_year_[3650];							// leaf biomasses of the 10 last years of all trees
+		double	men_height_year_[3650];					// mean heights of the 10 last years of all trees
+		double	max_height_year_[3650];					// max. heights of the 10 last years of all trees
+		double	basal_area_year_[3650];					// basal areas of the 10 last years of all trees
 		
-		clTree	*Trees;								// array of trees
+		double	p_canopy_year_[NUM_TR_TYPES][3650];		// tree cover of the 10 last years for different tree types
+		
+		clTree	*Trees;									// array of trees
 		
 		void calpCanopy();
 		
@@ -72,8 +71,9 @@ class clTreePop
 		clTreePop( double max_root_depth );
 		~clTreePop();
 		void delTree( int number );
-		void RunDeathProcess(int frost);
+		void RunDeathProcess(int frost, double drought_index);
 		double getDryBiomassForFire();
+		double getWetBiomassForFire();
 		void addFirstTree( double init_mass, int tree_type );
 		void addTree( double init_mass, int tree_type );
 		void addTreeFromSeedbank( int month, double moisture, double field_capacity,
@@ -82,7 +82,7 @@ class clTreePop
 							double *G_theta, double Ca, double P, double rh,
 							double C4_grass_height, double C3_grass_height, int day, int month, double soil_moisture,
 							double field_capacity, double wilt_point, double T_fac, int frost, double C34_ratio,
-							double *thickness, int soil_layers );
+							double *thickness, int soil_layers, double drought_index );
 		double getEt( double T, double P, double radnet_day, double s12, double SP_HEAT,
 					  double gama12, double rho12, double VPD12 );
 		void setStateAfterFire( double intensity, double patchiness, double cc_fine, double cc_coarse,
@@ -153,17 +153,12 @@ class clTreePop
 		double getMaxHeightYearMean();
 		double getBasalAreaYearMean();
 		double getMaxBasalAreaYearMean();
-// 		double getpCanopyYearMax();
-		double getpCanopySavYearMean();
-		double getpCanopyForYearMean();
 		double getpCanopy()					{ return p_canopy_tot_; }
-		double getpCanopySav()				{ return p_canopy_sav_; }
-		double getpCanopyFor()				{ return p_canopy_for_; }
+		double getpCanopyType( int i )		{ return p_canopy_[i]; }
+		double getpCanopyYearMean( int tp );
 		
-		int    getSavTreeNum();
-		int    getForTreeNum();
-		double getMeanSavHeight();
-		double getMeanForHeight();
+		int    getTreeNumType( int tp );
+		double getMeanHeightType( int tp );
 		
 #       ifdef S_ELEPHANTS
 		double setStateAfterElephants( double biomass_consumption, double group_type,
@@ -187,10 +182,13 @@ clTreePop::clTreePop( double max_root_depth )
 	pop_size_                     = 0.; 
 	dead_trees_                   = 0.;
 	new_born_                     = 0.;
-	num_of_seeds_[TR_SAV]         = 0;
-	num_of_seeds_[TR_FOR]         = 0;
-	num_of_seeds_collect_[TR_SAV] = 0;
-	num_of_seeds_collect_[TR_FOR] = 0;
+	
+	for ( int i=0; i<NUM_TR_TYPES; i++ )
+	{
+		num_of_seeds_[i]         = 0;
+		num_of_seeds_collect_[i] = 0;
+	}
+	
 	count_trees_                  = 0.;
 	root_bm_live_                 = 0.;
 	stem_bm_live_                 = 0.;
@@ -222,8 +220,9 @@ clTreePop::clTreePop( double max_root_depth )
 	basal_area_                   = 0.;
 	max_height_                   = 0.;
 	mean_lai_                     = 0.;
-	p_canopy_sav_                 = 0.;
-	p_canopy_for_                 = 0.;
+	p_canopy_tot_                 = 0.;
+	for ( int i=0; i<NUM_TR_TYPES; i++ )
+		p_canopy_[i]              = 0.;
 	
 	evapotransp_                  = 0.;
 	
@@ -235,8 +234,9 @@ clTreePop::clTreePop( double max_root_depth )
 		men_height_year_[i]   = 0;
 		max_height_year_[i]   = 0;
 		basal_area_year_[i]   = 0;
-		p_canopy_sav_year_[i] = 0;
-		p_canopy_for_year_[i] = 0;
+		for ( int j=0; j<NUM_TR_TYPES; j++ )
+			p_canopy_year_[j][i] = 0;
+		
 	}
 }
 
@@ -274,7 +274,7 @@ void clTreePop::addFirstTree( double init_mass, int tree_type )
 // trees by the arguments.
 void clTreePop::addTree( double init_mass, int tree_type )
 {
-	clTree Tree( init_mass, p_canopy_sav_+p_canopy_for_, pop_size_, count_trees_, tree_type, max_root_depth_ );
+	clTree Tree( init_mass, p_canopy_tot_, pop_size_, count_trees_, tree_type, max_root_depth_ );
 	
 	Trees = (clTree *) realloc(Trees,(pop_size_+1)*sizeof(clTree));
 	
@@ -308,7 +308,7 @@ void clTreePop::delTree( int number )
 	stem_bm_live_         -= Trees[number].getBs();
 	root_bm_live_         -= Trees[number].getBr();
 	
-	if ( drand48()<0.5 )
+	if ( drand48()<0.75 )
 	{
 		leaf_bm_dead_st_      += ( Trees[number].getBl()+Trees[number].getBld() );
 		stem_bm_dead_st_      += ( Trees[number].getBs()+Trees[number].getBsd() );
@@ -328,13 +328,16 @@ void clTreePop::delTree( int number )
 // 	max_height_            = MyMax(max_height_,Trees[number].getHeight());
 	mean_lai_              = ((mean_lai_*(double)pop_size_)-Trees[number].getLAI())/(double)(pop_size_-1);
 	
-	for ( count=number+1; count<pop_size_; count++ )
-		Trees[count-1] = Trees[count];
+	if ( number>=NUM_TR_TYPES )
+	{
+		for ( count=number+1; count<pop_size_; count++ )
+			Trees[count-1] = Trees[count];
 	
-	Trees = (clTree *) realloc(Trees, (pop_size_-1)*sizeof(clTree));
+		Trees = (clTree *) realloc(Trees, (pop_size_-1)*sizeof(clTree));
+		dead_trees_++;
+		pop_size_--;
+	}
 	
-	dead_trees_++;
-	pop_size_--;
 	
 	return;
 }
@@ -346,7 +349,7 @@ void clTreePop::RunPhysiology( double A0, double RmL, double mmsTOkgd, double T,
 							   double *G_theta, double Ca, double P, double rh,
 							   double C4_grass_height, double C3_grass_height, int day, int month, double soil_moisture,
 							   double field_capacity, double wilt_point, double T_fac, int frost, double C34_ratio,
-							   double *thickness, int soil_layers )
+							   double *thickness, int soil_layers, double drought_index )
 {
 	int comp;
 	int comp_type;
@@ -363,14 +366,14 @@ void clTreePop::RunPhysiology( double A0, double RmL, double mmsTOkgd, double T,
 	// This happens 1/2 year after day where seeds are produced
 	if ( (int)(A0_max_C3_day+182)%365 == day )
 	{
-		num_of_seeds_[TR_SAV]         = num_of_seeds_collect_[TR_SAV];
-		num_of_seeds_collect_[TR_SAV] = 0;
-		num_of_seeds_[TR_FOR]         = num_of_seeds_collect_[TR_FOR];
-		num_of_seeds_collect_[TR_FOR] = 0;
-		wet_days_                     = 0;
+		for ( int i=0; i<NUM_TR_TYPES; i++ )
+		{
+			num_of_seeds_[i]         += num_of_seeds_collect_[i];
+			num_of_seeds_collect_[i]  = 0;
+		}
+		
+		wet_days_                    = 0;
 	}
-	
-// 	if ( GLOB_YEAR>100 && GLOB_YEAR<111 ) num_of_seeds_[TR_SAV] = 50;
 	
 	addTreeFromSeedbank( month, soil_moisture, field_capacity, wilt_point, T, frost );
 	
@@ -405,7 +408,8 @@ void clTreePop::RunPhysiology( double A0, double RmL, double mmsTOkgd, double T,
 		Trees[count].RunPhysiology( A0, RmL, mmsTOkgd, T, wind, G_theta_weighted, G_theta[3], 
 									Ca, P, rh, comp_height, C4_grass_height, C3_grass_height,
 									day, T_fac, frost, comp_type, C34_ratio, thickness );
-				
+		
+		
 		leaf_bm_live_          += Trees[count].getBl();
 		stem_bm_live_          += Trees[count].getBs();
 		root_bm_live_          += Trees[count].getBr();
@@ -428,26 +432,31 @@ void clTreePop::RunPhysiology( double A0, double RmL, double mmsTOkgd, double T,
 		#ifndef S_NOREPROD
 		if ( day==A0_max_C3_day )
 			num_of_seeds_collect_[Trees[count].getTreeType()] += Trees[count].getSeedProduction();
-		
+			
 		if ( Trees[count].getRootSucker()==1 && day>(A0_max_C3_day-1) && day<(A0_max_C3_day+1) )
 			addTree( 1., Trees[count].getTreeType() );
 		#endif
 	}
 	
-	num_of_seeds_collect_[TR_SAV] = (int)ceil(SEED_DECAY_RATE[TR_SAV]*(double)num_of_seeds_collect_[TR_SAV]);
-	num_of_seeds_collect_[TR_FOR] = (int)ceil(SEED_DECAY_RATE[TR_FOR]*(double)num_of_seeds_collect_[TR_FOR]);
+// 	cout << "LLL " << setw(5) << GLOB_YEAR+day/365. << setw(15) << Trees[0].getnCGT() << setw(15) << Trees[1].getnCGT() << setw(15) << Trees[2].getnCGT() << endl;
+// 	cout << "LLL " << setw(5) << GLOB_YEAR+day/365. << setw(15) << Trees[0].getCCC() << setw(15) << Trees[1].getCCC() << setw(15) << Trees[2].getCCC() << endl;
+// cout << "LLL " << setw(5) << GLOB_YEAR+day/365. << setw(15) << Trees[0].getCCCcum() << setw(15) << Trees[1].getCCCcum() << setw(15) << Trees[2].getCCCcum() << endl;
 	
-	num_of_seeds_[TR_SAV]         = (int)ceil(SEED_DECAY_RATE[TR_SAV]*(double)num_of_seeds_[TR_SAV]);
-	num_of_seeds_[TR_FOR]         = (int)ceil(SEED_DECAY_RATE[TR_FOR]*(double)num_of_seeds_[TR_FOR]);
+	
+	
+// 	cout << setw(5) << day << setw(15) << Trees[0].getAindex() << setw(15) << Trees[1].getAindex() << setw(15) << Trees[2].getAindex() << endl;
+// 	cout << "LLL " << setw(5) << GLOB_YEAR+day/365. << setw(15) << Trees[0].getLeafReturn() << setw(15) << Trees[1].getLeafReturn() << setw(15) << Trees[2].getLeafReturn() << endl;
+// cout << "LLL " << setw(5) << GLOB_YEAR+day/365. << setw(15) << Trees[0].getnCGT() << setw(15) << Trees[1].getnCGT() << setw(15) << Trees[2].getnCGT() << endl;
+
+	for ( int i=0; i<NUM_TR_TYPES; i++ )
+	{
+		num_of_seeds_collect_[i] = (int)ceil(SEED_DECAY_RATE[i]*(double)num_of_seeds_collect_[i]);
+		num_of_seeds_[i]         = (int)ceil(SEED_DECAY_RATE[i]*(double)num_of_seeds_[i]);
+	}
 	
 	mean_lai_    /= (double)pop_size_;
 	
 	calpCanopy();
-	
-// 	num_of_seeds_[TR_SAV] = 0;
-// 	num_of_seeds_[TR_FOR] = 0;
-// 	num_of_seeds_collect_[TR_SAV] = 0;
-// 	num_of_seeds_collect_[TR_FOR] = 0;
 	
 	
 	for ( int i=0; i<3649; i++ )
@@ -458,8 +467,8 @@ void clTreePop::RunPhysiology( double A0, double RmL, double mmsTOkgd, double T,
 		men_height_year_[i]      = men_height_year_[i+1];
 		max_height_year_[i]      = max_height_year_[i+1];
 		basal_area_year_[i]      = basal_area_year_[i+1];
-		p_canopy_sav_year_[i]    = p_canopy_sav_year_[i+1];
-		p_canopy_for_year_[i]    = p_canopy_for_year_[i+1];
+		for ( int j=0; j<NUM_TR_TYPES; j++ ) 
+			p_canopy_year_[j][i]    = p_canopy_year_[j][i+1];
 	}
 	
 	Bl_year_[3649]           = leaf_bm_live_;
@@ -468,9 +477,10 @@ void clTreePop::RunPhysiology( double A0, double RmL, double mmsTOkgd, double T,
 	men_height_year_[3649]   = mean_height_/(int)pop_size_;
 	max_height_year_[3649]   = max_height_;
 	basal_area_year_[3649]   = basal_area_;
-	p_canopy_sav_year_[3649] = p_canopy_sav_;
-	p_canopy_for_year_[3649] = p_canopy_for_;
-
+	
+	for ( int j=0; j<NUM_TR_TYPES; j++ ) 
+		p_canopy_year_[j][3649]    = p_canopy_[j];
+	
 	// Transition from hanging/standing leaf/stem biomass to lying biomass
 	leaf_bm_dead_ly_ += HELPER_BLTL_TREE* leaf_bm_dead_st_;
 	leaf_bm_dead_st_ *= HELPER_BLT__TREE;
@@ -498,14 +508,12 @@ void clTreePop::RunPhysiology( double A0, double RmL, double mmsTOkgd, double T,
 	
 	delete[] G_theta_weighted;
 	
-	if ( day==364 )
-	{
-		active_days_==0;
-		for ( int count=0; count<pop_size_; count++ ) active_days_ += Trees[count].getActiveDays();
-		active_days_/=(double)pop_size_;
-// 		cout << "GSL" << setw(14) << active_days_ << endl;
-	}
-	
+// 	if ( day==364 )
+// 	{
+// 		active_days_==0;
+// 		for ( int count=0; count<pop_size_; count++ ) active_days_ += Trees[count].getActiveDays();
+// 		active_days_/=(double)pop_size_;
+// 	}
 	
 	return;
 }
@@ -514,22 +522,18 @@ void clTreePop::RunPhysiology( double A0, double RmL, double mmsTOkgd, double T,
 // ---------------------------------------------------------------------------------------------------------------------------
 // Compute survival probability for each tree and delete tree from the population if it is too small.
 // Tree 0 cannot be deleted
-void clTreePop::RunDeathProcess(int frost)
+void clTreePop::RunDeathProcess(int frost, double drought_index)
 {
 	int count   = pop_size_-1;
 	
-	while( count>1 )
+	while( count>=0 )
 	{
-		if ( Trees[count].WillIDie(frost) == 1 )
+		if ( Trees[count].WillIDie(frost, drought_index) == 1 )
 		{
 			delTree( count );
 		}
 		count--;
 	}
-	
-	// tree 0 is special case as it is immortal and cannot be removed from population
-	if ( Trees[0].WillIDie(frost) == 1 ) ;
-	if ( Trees[1].WillIDie(frost) == 1 ) ;
 	
 	calpCanopy();
 	
@@ -579,7 +583,7 @@ void clTreePop::setStateAfterFire( double intensity, double patchiness, double c
 	
 	int count   = pop_size_-1;
 	
-	while( count>1 )
+	while( count>=0 )
 	{
 		if ( Trees[count].getFireDead() == 1 )
 		{
@@ -588,10 +592,28 @@ void clTreePop::setStateAfterFire( double intensity, double patchiness, double c
 		count--;
 	}
 	
-	// tree 0 is special case as it is immortal and cannot be removed from population
-	// if ( Trees[0].WillIDieAfterFire() == 1 ) ;  GM: what do these lines do?
-	//	if ( Trees[1].WillIDieAfterFire() == 1 ) ; GM: what do  these lines do?
+	num_of_seeds_[TR_SAV] = 0;
+	num_of_seeds_[TR_FOR] = 0;
 	
+// 	cout << "-------------- " << num_of_seeds_[TR_BBS] << endl;
+	if ( num_of_seeds_[TR_BBS]>0 )
+	{
+// 		int seeds = (int) ceil((double) num_of_seeds_[TR_BBS]*SEED_FRAC_DAY[TR_BBS]);
+		int seeds = (int) ceil((double) num_of_seeds_[TR_BBS]*0.5);
+// 		int seeds = num_of_seeds_[TR_BBS];
+// 		cout << "               "  << num_of_seeds_[TR_BBS] << " " << seeds << endl;;
+		for ( int count=0; count<seeds; count++ )
+		{
+// 			cout << " " << getTreeNumType(TR_BBS);
+			if ( drand48()<SEED_GERM_PROB[TR_BBS] && getTreeNumType(TR_BBS)<5000 )
+			{
+				addTree(INIT_MASS_TREE, TR_BBS);
+//  				cout << "|";
+			}
+			num_of_seeds_[TR_BBS]--;
+		}
+	}
+// 	cout << "               " << num_of_seeds_[TR_BBS] << endl;
 	calpCanopy();
 	
 	return;
@@ -613,8 +635,23 @@ void clTreePop::emptyCombustionPools()
 // ---------------------------------------------------------------------------------------------------------------------------
 // The intensity of fire is dependent on dry tree biomass per m^2
 double clTreePop::getDryBiomassForFire()
-{  // NOTE: needs update
-	return leaf_bm_dead_ly_/GRID_SIZE+stem_bm_dead_ly_*SFRAC_FINE/GRID_SIZE;   // NOTE /GRID_SIZE for kg/m^2
+{
+	return 0.;//leaf_bm_dead_ly_/GRID_SIZE+stem_bm_dead_ly_*SFRAC_FINE/GRID_SIZE;   // NOTE /GRID_SIZE for kg/m^2
+}
+
+
+// ---------------------------------------------------------------------------------------------------------------------------
+// Burning bush type contributes to fire intensity
+double clTreePop::getWetBiomassForFire()
+{
+	double bbs_fuel = 0;
+	
+	if ( p_canopy_[TR_BBS]>BBS_FIRE_COVER )
+		for ( int i=0; i<pop_size_; i++ )
+			if ( Trees[i].getTreeType()==TR_BBS )
+				bbs_fuel += ( Trees[i].getBl()+Trees[i].getBs() );
+	
+	return bbs_fuel/GRID_SIZE;   // NOTE /GRID_SIZE for kg/m^2
 }
 
 
@@ -650,14 +687,14 @@ void clTreePop::addTreeFromSeedbank( int month, double moisture, double field_ca
 // 		}
 // 		#endif
 		
-		for ( int type=TR_SAV; type<=TR_FOR; type++ )
+		for ( int type=0; type<=NUM_TR_TYPES; type++ )
 		{
 			if ( num_of_seeds_[type]>0 )
 			{
 				int seeds = (int) ceil((double) num_of_seeds_[type]*SEED_FRAC_DAY[type]);
 				for ( int count=0; count<seeds; count++ )
 				{
-					if ( drand48()<SEED_GERM_PROB[type] )
+					if ( drand48()<SEED_GERM_PROB[type] && getTreeNumType(TR_SAV)+getTreeNumType(TR_FOR)<10000 )
 					{
 						addTree(INIT_MASS_TREE, type);
 					}
@@ -958,64 +995,34 @@ double clTreePop::getMaxBasalAreaYearMean()
 // }
 
 // ---------------------------------------------------------------------------------------------------------------------------
-double clTreePop::getpCanopySavYearMean()
+
+double clTreePop::getpCanopyYearMean( int tp )
 {
 	double mean=0;
 	for ( int i=0; i<3650; i++ )
-		mean += p_canopy_sav_year_[i];
+		mean += p_canopy_year_[tp][i];
 	return mean/3650.;
 }
-
-double clTreePop::getpCanopyForYearMean()
-{
-	double mean=0;
-	for ( int i=0; i<3650; i++ )
-		mean += p_canopy_for_year_[i];
-	return mean/3650.;
-}
-
 
 // ---------------------------------------------------------------------------------------------------------------------------
-// new functions for savanna and forest trees
-int clTreePop::getSavTreeNum()
-{
-	int cnt=0;
-	for ( int i=0; i<pop_size_; i++ ) cnt += Trees[i].getTreeType();
-	
-	return pop_size_-cnt;
-}
 
-int clTreePop::getForTreeNum()
+int clTreePop::getTreeNumType( int tp )
 {
 	int cnt=0;
-	for ( int i=0; i<pop_size_; i++ ) cnt += Trees[i].getTreeType();
+	for ( int i=0; i<pop_size_; i++ ) 
+		if ( Trees[i].getTreeType()==tp ) cnt++;
 	
 	return cnt;
 }
 
-double clTreePop::getMeanSavHeight()
-{
-	int cnt = 0;
-	int sum = 0;
-	for ( int i=0; i<pop_size_; i++ )
-	{
-		if ( Trees[i].getTreeType()==TR_SAV )
-		{
-			cnt++;
-			sum += Trees[i].getHeight();
-		}
-	}
-	
-	return sum/(double)cnt;
-}
 
-double clTreePop::getMeanForHeight()
+double clTreePop::getMeanHeightType( int tp )
 {
 	int cnt = 0;
 	int sum = 0;
 	for ( int i=0; i<pop_size_; i++ )
 	{
-		if ( Trees[i].getTreeType()==TR_FOR )
+		if ( Trees[i].getTreeType()==tp )
 		{
 			cnt++;
 			sum += Trees[i].getHeight();
@@ -1028,38 +1035,35 @@ double clTreePop::getMeanForHeight()
 
 
 // ---------------------------------------------------------------------------------------------------------------------------
-// new functions for savanna and forest trees
 
 void clTreePop::calpCanopy()
 {
-	int     i;
-	double  caSumTot = 0;
-	double  caSumSav = 0;
-	double  caSumFor = 0;
+	p_canopy_tot_ = 0;
+	for ( int i=0; i<NUM_TR_TYPES; i++ ) p_canopy_[i] = 0;
 	
-	for ( i=0; i<pop_size_; i++ )
+	for ( int i=0; i<pop_size_; i++ )
 	{
-		if ( Trees[i].getCompetitor() == -1 && Trees[i].getHeight() > 0.5 )
+ 		if ( Trees[i].getCompetitor() == -1 && Trees[i].getHeight() > 0.5 )
 		{
-			caSumTot += Trees[i].getCanopyArea();
-			if ( Trees[i].getTreeType()==TR_SAV ) caSumSav += Trees[i].getCanopyArea();
-			if ( Trees[i].getTreeType()==TR_FOR ) caSumFor += Trees[i].getCanopyArea();
+			p_canopy_[Trees[i].getTreeType()] += Trees[i].getCanopyArea();
 		}
 	}
 	
-	caSumTot /= (double)GRID_SIZE;
-	caSumSav /= (double)GRID_SIZE;
-	caSumFor /= (double)GRID_SIZE;
 	
-	p_canopy_tot_ = MyMin( 1., caSumTot );
-	p_canopy_sav_ = MyMin( 1., caSumSav );
-	p_canopy_for_ = MyMin( 1., caSumFor );
-	
-	if ( p_canopy_tot_==1. )
+	for ( int i=0; i<NUM_TR_TYPES; i++ )
 	{
-		p_canopy_sav_ = caSumSav/caSumTot;
-		p_canopy_for_ = caSumFor/caSumTot;
+		p_canopy_[i]  /= (double)GRID_SIZE;
+		p_canopy_tot_ += p_canopy_[i];
 	}
+	
+	if ( p_canopy_tot_>1. )
+	{
+		for ( int i=0; i<NUM_TR_TYPES; i++ )
+			p_canopy_[i] = p_canopy_[i]/p_canopy_tot_;
+		
+		p_canopy_tot_ = 1.;
+	}
+	
 }
 
 

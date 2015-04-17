@@ -50,7 +50,7 @@ double CH4heavy( double bm );
 double CH4shrub( double bm );
 
 double LightFire( double dead_fuel, double live_fuel, double dead_fuel_moisture, double live_fuel_moisture,
-				  double wind_speed, int day );
+				  double wind_speed, int day, double hum, double tmp, double soil_moisture );
 
 void GetIgnitions( arryYear ignitions );
 
@@ -127,7 +127,7 @@ double CH4shrub(  double bm ) { return bm*0.5 *0.0035*1.33; }
 // the resulting intensity and updates the biomasses, if the fire really spreads.
 
 double LightFire( double dead_fuel, double live_fuel, double dead_fuel_moisture, double live_fuel_moisture,
-				  double wind_speed, int day )
+				  double wind_speed, int day, double hum, double tmp, double soil_moisture )
 {
 	double ret = 0;
 	

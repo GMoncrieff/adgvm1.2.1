@@ -26,7 +26,7 @@ class clGrassPop
 		double  Rma_;
 		double  Rgr_;
 		double  C34_ratio_;                 // ratio between C3 and C4 grasses
-		double  cover_[6];                  // cover of different grass types
+		double  cover_[NUM_GR_TYPES];                  // cover of different grass types
 		
 		double  C34_ratio_year_[3650];
 		double	active_days_;
@@ -38,8 +38,8 @@ class clGrassPop
 		void setStateAfterFire( double patchiness, double cc_fine );
 		void emptyCombustionPools();
 		void RunPhysiology( double A0_C4, double A0_C3, double RmL_C4, double RmL_C3, double mmsTOkgd, double T, double wind,
-							double *G_theta, double Ca, double P, double rh, double mean_sav_height, double mean_for_height,
-							double T_fac, int frost, double p_can_sav, double p_can_for, double *thickness, int day );
+							double *G_theta, double Ca, double P, double rh, double T_fac, int frost, double *mean_tr_height,
+							double *p_can, double *thickness, int day );
 		double getEt( double T, double P, double radnet_day, double s12, double SP_HEAT,
 					  double gama12, double rho12, double VPD12, double p_canopy );
 		double getWetBiomassForFire();
@@ -123,12 +123,10 @@ clGrassPop::clGrassPop()
 	C34_ratio_         = 1.;
 	#endif
 	
-	cover_[0]          = 0.;
-	cover_[1]          = 0.;
-	cover_[2]          = 0.;
-	cover_[3]          = 0.;
-	cover_[4]          = 0.;
-	cover_[5]          = 0.;
+	for ( int i=0; i<NUM_GR_TYPES; i++ )
+	{
+		cover_[i] = 0.;
+	}
 	
 	for ( int i=0; i<3650; i++ )
 	{
@@ -169,8 +167,8 @@ void clGrassPop::addGrass( double init_mass, int grass_type )
 // Run physiology for the grass population, calls the physiology for each grass
 
 void clGrassPop::RunPhysiology( double A0_C4, double A0_C3, double RmL_C4, double RmL_C3, double mmsTOkgd, double T, double wind,
-								double *G_theta, double Ca, double P, double rh, double mean_sav_height, double mean_for_height,
-								double T_fac, int frost, double p_can_sav, double p_can_for, double *thickness, int day )
+								double *G_theta, double Ca, double P, double rh, double T_fac, int frost, double *mean_tr_height,
+								double *p_can, double *thickness, int day )
 {
 	double dead_bm = 0.;    // stores standing dead grass biomass for the two individuals, needed for ligth competition
 	leaf_bm_live_  = 0.;
@@ -186,7 +184,7 @@ void clGrassPop::RunPhysiology( double A0_C4, double A0_C3, double RmL_C4, doubl
 		dead_bm = leaf_bm_dead_st_*cover_[count];  // passed to physiology, required for light competition
 		
 		Grasses[count].RunPhysiology( A0_C4, A0_C3, RmL_C4, RmL_C3, mmsTOkgd, T, wind, G_theta, Ca, P, rh,
-									  mean_sav_height, mean_for_height, dead_bm, T_fac, frost, thickness, day );
+									  dead_bm, T_fac, frost, mean_tr_height, thickness, day );
 		
 		leaf_bm_live_    += Grasses[count].getBl()*cover_[count];
 		root_bm_live_    += Grasses[count].getBr()*cover_[count];
@@ -213,12 +211,20 @@ void clGrassPop::RunPhysiology( double A0_C4, double A0_C3, double RmL_C4, doubl
 	leaf_bm_dead_ly_ -= tr_leaf_d_nwl;
 	root_bm_dead_    -= tr_root_f_nwl;
 	
-	double helper_c3 = Grasses[GR_C3_OPN].getGPP();
-	double helper_c4 = Grasses[GR_C4_OPN].getGPP();
+// 	double helper_c3 = Grasses[GR_C3OPN].getGPP();
+// 	double helper_c4 = Grasses[GR_C4OPN].getGPP();
+	
+	double helper_c3 = Grasses[GR_C3OPN].getCCCcum();
+	double helper_c4 = Grasses[GR_C4OPN].getCCCcum();
+	
+	
+	
+// 	cout << setw(14) << helper_c3 << setw(14) << helper_c4 << setw(14) << helper_c3 /helper_c4 << endl;
 	
 	if ( helper_c4>0 )
-		{
-		C34_ratio_ += 0.001*(Grasses[GR_C3_OPN].getBl()/Grasses[GR_C4_OPN].getBl()-1.) * (1.-C34_ratio_);
+	{
+// 		C34_ratio_ += 0.001*(Grasses[GR_C3OPN].getBl()/Grasses[GR_C4OPN].getBl()-1.) * (1.-C34_ratio_);
+		C34_ratio_ += 0.001*(helper_c3/helper_c4-1.) * (1.-C34_ratio_);
 		C34_ratio_  = MyMax( 0.01, MyMin( 0.99, C34_ratio_ ));
 	}
 	
@@ -246,20 +252,25 @@ void clGrassPop::RunPhysiology( double A0_C4, double A0_C3, double RmL_C4, doubl
 		C34_ratio_year_[i] = C34_ratio_year_[i+1];
 	}
 	C34_ratio_year_[3649] = C34_ratio_;
+
+	cover_[GR_C4OPN] = (1.-C34_ratio_)*(1.-p_can[TR_SAV]-p_can[TR_FOR]-p_can[TR_BBS]);
+	cover_[GR_C3OPN] = (   C34_ratio_)*(1.-p_can[TR_SAV]-p_can[TR_FOR]-p_can[TR_BBS]);
 	
-	cover_[GR_C4_SAV] = (1.-C34_ratio_)*              p_can_sav;
-	cover_[GR_C4_OPN] = (1.-C34_ratio_)*(1.-MyMin(1., p_can_sav+p_can_for));
-	cover_[GR_C4_FOR] = (1.-C34_ratio_)*              p_can_for;
-	cover_[GR_C3_SAV] = (   C34_ratio_)*              p_can_sav;
-	cover_[GR_C3_OPN] = (   C34_ratio_)*(1.-MyMin(1., p_can_sav+p_can_for));
-	cover_[GR_C3_FOR] = (   C34_ratio_)*              p_can_for;
+	cover_[GR_C4SAV] = (1.-C34_ratio_)*    p_can[TR_SAV];
+	cover_[GR_C3SAV] = (   C34_ratio_)*    p_can[TR_SAV];
+	
+	cover_[GR_C4FOR] = (1.-C34_ratio_)*    p_can[TR_FOR];
+	cover_[GR_C3FOR] = (   C34_ratio_)*    p_can[TR_FOR];
+	
+	cover_[GR_C4BBS] = (1.-C34_ratio_)*    p_can[TR_BBS];
+	cover_[GR_C3BBS] = (   C34_ratio_)*    p_can[TR_BBS];
+	
 	
 	if ( day==364 )
 	{
 		active_days_==0;
 		for ( int count=0; count<pop_size_; count++ ) active_days_ += Grasses[count].getActiveDays();
 		active_days_/=(double)pop_size_;
-// 		cout << "GSL" << setw(24) << active_days_ << endl;
 	}
 	
 	
@@ -326,11 +337,9 @@ double clGrassPop::getFuelMoisture()
 {
 	double tmp_moist = 0.;
 	for ( int i=0; i<pop_size_; i++ )
-// 		tmp_moist += (Grasses[i].getFuelMoisture());
 		tmp_moist += (Grasses[i].getFuelMoisture()*cover_[i]);
 		
 	return tmp_moist;
-// 	return tmp_moist/(double)pop_size_;
 }
 
 
@@ -350,9 +359,8 @@ double clGrassPop::getEt( double T, double P, double radnet_day, double s12, dou
 {
 	double Et_grasses = 0;
 	
-	
-	Et_grasses  = Grasses[0].getEt( T, P, radnet_day, s12, SP_HEAT, gama12, rho12, VPD12 )*p_canopy
-				+ Grasses[1].getEt( T, P, radnet_day, s12, SP_HEAT, gama12, rho12, VPD12 )*(1.-p_canopy);
+	for ( int i=0; i<NUM_GR_TYPES; i++ )
+		Et_grasses += (Grasses[i].getEt( T, P, radnet_day, s12, SP_HEAT, gama12, rho12, VPD12 )*cover_[i]);
 	
 	return Et_grasses;
 	
@@ -360,22 +368,38 @@ double clGrassPop::getEt( double T, double P, double radnet_day, double s12, dou
 
 double clGrassPop::getBlMaxYearC4()
 {
-	return Grasses[0].getBlYearMax()+Grasses[1].getBlYearMax()+Grasses[2].getBlYearMax();	// kg/m^2
+	double ret=0;
+	for ( int i=0; i<NUM_GR_TYPES; i=i+2 )  // tree_type of C4 grasses is even number
+		ret += Grasses[i].getBlYearMax()*cover_[i];
+	
+	return ret;	// kg/m^2
 }
 
 double clGrassPop::getBrMaxYearC4()
 {
-	return Grasses[0].getBrYearMax()+Grasses[1].getBrYearMax()+Grasses[2].getBrYearMax();	// kg/m^2
+	double ret=0;
+	for ( int i=0; i<NUM_GR_TYPES; i=i+2 )  // tree_type of C4 grasses is even number
+		ret += Grasses[i].getBrYearMax()*cover_[i];
+	
+	return ret;	// kg/m^2
 }
 
 double clGrassPop::getBlMaxYearC3()
 {
-	return Grasses[3].getBlYearMax()+Grasses[4].getBlYearMax()+Grasses[5].getBlYearMax();	// kg/m^2
+	double ret=0;
+	for ( int i=1; i<NUM_GR_TYPES; i=i+2 )  // tree_type of C4 grasses is odd number
+		ret += Grasses[i].getBlYearMax()*cover_[i];
+	
+	return ret;	// kg/m^2
 }
 
 double clGrassPop::getBrMaxYearC3()
 {
-	return Grasses[3].getBrYearMax()+Grasses[4].getBrYearMax()+Grasses[5].getBrYearMax();	// kg/m^2
+	double ret=0;
+	for ( int i=1; i<NUM_GR_TYPES; i=i+2 )  // tree_type of C4 grasses is odd number
+		ret += Grasses[i].getBrYearMax()*cover_[i];
+	
+	return ret;	// kg/m^2
 }
 
 double clGrassPop::getC34RatioYearMean()

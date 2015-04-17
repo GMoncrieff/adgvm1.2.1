@@ -213,7 +213,7 @@ for ( int i=0; i<12; i++ ) MyInData_.tmp_[i]     += 4.396683;
 	for ( int i=0; i<MyInData_.soil_layers_; i++ ) Quelle >> MyInData_.thickness_[i];
 	
 	for ( int i=0; i<MyInData_.soil_layers_; i++ )
-	{
+	{//MyInData_.soil_N_[i]/=5.;
 		if ( MyInData_.soil_N_[i] <= 0.000001 ) MyInData_.soil_N_[i] = 0.01;
 	}
 	

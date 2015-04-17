@@ -17,25 +17,27 @@ class clGrass
 		int		Dpos_; 								// dormancy counter (days where nCGT>0)
 		int		Dneg_;								// standby counter (days where nCGT=0)
 		int		Dormant_;							// dormant yes=1, no=0
-		int     grass_type_;						// C4: open grass (1), sav canopy grass (0) or for. can. grass (2)
-													// C3: open grass (4), sav canopy grass (3) or for. can. grass (5)
+		int     grass_type_;						// 
 		int		active_days_;						// counts active days per year
 		double	Bl_;    							// leaf biomass
 		double	Br_;    							// root biomass
 		double	Bs_;    							// stem biomass
-
+		
 		double	Bld_;								// dead leaf biomass, kg per m^2
 		double	Bsd_;								// dead stem biomass, kg per m^2
 		double	Brd_;								// dead root biomass, kg per m^2
 		
 		double	leaf_combustion_;
 		double	stem_combustion_;
-
+		
 		double  gpp_;
-        double  Rma_;
-        double  Rgr_;
-
-        double	Qsum_;
+		double  Rma_;
+		double  Rgr_;
+		
+		double	ccc_;
+		double	ccc_cum_;
+		
+		double	Qsum_;
 		double	Qi_;
 		double	Ci_;
 		double	alloc_denom_;
@@ -82,8 +84,8 @@ class clGrass
 		~clGrass();
 		
 		void RunPhysiology( double A0_C4, double A0_C3, double RmL_C4, double RmL_C3, double mmsTOkgd, double T, double wind,
-							double *G_theta, double Ca, double P, double rh, double mean_sav_height,
-							double mean_for_height, double dead_bm, double T_fac, int frost, double *thickness, int day );
+							double *G_theta, double Ca, double P, double rh, double dead_bm, double T_fac,
+							int frost, double *mean_tr_height, double *thickness, int day );
 		double getEt( double T, double P, double radnet_day, double s12, double SP_HEAT,
 					  double gama12, double rho12, double VPD12 );
 		void   setStateAfterFire( double patchiness, double cc_fine );
@@ -116,6 +118,10 @@ class clGrass
 		double getLAI()				{ return LAI_; }
 		double getBlYearMax();
 		double getBrYearMax();
+		
+		double getCCC()				{ return ccc_; }
+		double getCCCcum()			{ return ccc_cum_; }
+		
 		
 #		ifdef S_ELEPHANTS
 		void   setBl(  double bm )	{ Bl_  = bm; return; }
@@ -159,6 +165,9 @@ clGrass::clGrass( double init_mass, int grass_type )
 	Gw_				 = 1.;
 	Aindex_			 = 1.;
 	
+	ccc_			= 0.;
+	ccc_cum_		= 0.;
+	
 	A_factor_		 = 1.;
 	
 	for ( int i=0; i<365; i++ )
@@ -188,7 +197,8 @@ void clGrass::calDroot()
 // Standard power function, based on fits to Niklas&Enquist data, estimates the plant height from the stem biomass. Arora
 void clGrass::calPlantHeight()
 {
-	height_ = MIN_HEIGHT+HEIGHT_C1_GRASS[grass_type_]*pow(Bl_,HEIGHT_C2_GRASS[grass_type_]);
+// 	height_ = MIN_HEIGHT+HEIGHT_C1_GRASS[grass_type_]*pow(Bl_,HEIGHT_C2_GRASS[grass_type_]);
+	height_ = exp( (log(Bs_+Bl_)+HEIGHT_C1_GRASS[grass_type_])/HEIGHT_C2_GRASS[grass_type_] );
 	return;
 }
 
@@ -271,8 +281,8 @@ void clGrass::AllocateCorbon()
 // ----------------------------------------------------------------------------------------------------------------------
 // run the grass physiology
 void clGrass::RunPhysiology( double A0_C4, double A0_C3, double RmL_C4, double RmL_C3, double mmsTOkgd, double T, double wind,
-							 double *G_theta, double Ca, double P, double rh, double mean_sav_height,
-							 double mean_for_height, double dead_bm, double T_fac, int frost, double *thickness, int day )
+							 double *G_theta, double Ca, double P, double rh, double dead_bm, double T_fac, int frost,
+							 double *mean_tr_height, double *thickness, int day )
 {
 	double A0;
 	double Acs;		// canopy and canopy-stressed photosythesis
@@ -282,17 +292,22 @@ void clGrass::RunPhysiology( double A0_C4, double A0_C3, double RmL_C4, double R
 	double RmLg;		// leaf maint resp in kg/day/plant
 	double RmL;
 	
+	ccc_ = Bl_+Bs_+Br_;
+		
 	if ( day==0 )
 	{
-		// 		if (number_==0 )cout << setw(14) << active_days_ << endl;
 		active_days_ = 0;
 	}
 	
 	
-	if ( grass_type_ <=2 )
+	if ( grass_type_%2==0 )
 	{
 		A0   = A0_C4;
 		RmL = RmL_C4;
+		// 		if (T<25.) A0  *= 0.1;
+// 		if (T<25.) RmL *= 0.1;
+// 		A0  *= 0.001;
+// 		RmL *= 0.001;
 	}
 	else
 	{
@@ -310,13 +325,18 @@ void clGrass::RunPhysiology( double A0_C4, double A0_C3, double RmL_C4, double R
 	// light availability
 	Qi_ = 1.;
 	if ( dead_bm>Bl_ )
-		Qi_ *= LICMP_1[grass_type_+2][grass_type_+2]/dead_bm*Bl_+LICMP_2[grass_type_+2][grass_type_+2];  // dead grass shading effects
+		Qi_ *= LC_GR_GR_1[grass_type_]/dead_bm*Bl_+LC_GR_GR_2[grass_type_];  // dead grass shading effects
 	
-	if ( ( grass_type_==GR_C4_SAV || grass_type_==GR_C3_SAV ) && mean_sav_height > height_ ) // savanna tree sub-canopy grass
-		Qi_ *= MyMax(0.01, LICMP_1[TR_SAV][grass_type_+2]/mean_sav_height*height_ + LICMP_2[TR_SAV][grass_type_+2] );
+	if ( grass_type_>1 ) // only sub-canopy grasses are shaded, that is grass_type_>=2
+	{
+		int comp_ind = grass_type_/2-1;  // get competitor tree type
+		if (  mean_tr_height[comp_ind]>height_ )
+		{
+			Qi_ *= LC_TR_GR_1[comp_ind][grass_type_]/mean_tr_height[comp_ind]*height_ + LC_TR_GR_2[comp_ind][grass_type_];
+// 			cout << grass_type_ << "  " << comp_ind << setw(15) << mean_tr_height[comp_ind] << setw(15) << height_ << setw(15) << LC_TR_GR_1[comp_ind][grass_type_] << setw(14) << LC_TR_GR_2[comp_ind][grass_type_] << setw(14) << Qi_ << endl;
+		}
+	}
 	
-	if ( ( grass_type_==GR_C4_FOR || grass_type_==GR_C3_FOR ) && mean_for_height > height_ ) // forest tree sub-canopy grass
-		Qi_ *= MyMax(0.01, LICMP_1[TR_FOR][grass_type_+2]/mean_for_height*height_ + LICMP_2[TR_FOR][grass_type_+2] );
 	
 	Qsum_ = Qi_*calQSum();
 	
@@ -345,8 +365,12 @@ void clGrass::RunPhysiology( double A0_C4, double A0_C3, double RmL_C4, double R
 	calGc( Acs, RmLc, Ca, P, rh, T );  // (mmol/m^2/s)
 	
 	double Ti;
-	if      ( tmp_min_month > TI_CONST ) Ti = 0.;
-	else                                 Ti = 2.0*(-1.+tmp_min_month/TI_CONST);
+	if      ( tmp_min_month > TI_CONST_GR[grass_type_] ) Ti = 0.;
+	else                                 
+	{
+		Ti = 4.0*(-1.+tmp_min_month/TI_CONST_GR[grass_type_]);
+// 		cout << setw(14) << tmp_min_month << setw(14) << Ti << setw(14) << grass_type_ << endl;
+	}
 	
 	Aindex_ = A0*( (WATER_IND_GRASS[grass_type_]*G_theta[3]+WATER_IND_GRASS_1[grass_type_]*Gw_) + Ti ) - RmL;
 	
@@ -365,14 +389,16 @@ void clGrass::RunPhysiology( double A0_C4, double A0_C3, double RmL_C4, double R
 	if ( Dormant_==1 ) Dneg_ = 0;
 	
 	
+	
 	//if days of negative nCGT > threshold then assign to dormant state
 	if ( Dneg_>=D_NEG_GRASS[grass_type_] )
 	{
 		fuel_moisture_ = 1.;
-		Dormant_   = 1;
-		Dneg_      = 0;
-		Bld_      += (1.-REM_BM_GRASS)*Bl_;
-		Bl_        = REM_BM_GRASS*Bl_;
+		Dormant_       = 1;
+		Dneg_          = 0;
+		Bld_          += (1.-REM_BM_GRASS)*Bl_;
+		Bl_            = REM_BM_GRASS*Bl_;
+// 		if ( grass_type_==1 ) cout << "GRPHEN off " << setw(5) << GLOB_YEAR << setw(5) << day << setw(5) << grass_type_ << endl;
 	}
 	
 	//if days of positive nCGT > threshold
@@ -381,6 +407,7 @@ void clGrass::RunPhysiology( double A0_C4, double A0_C3, double RmL_C4, double R
 		Dormant_ = 0; //assign to growth state
 		Dpos_ = 0;
 		A_factor_ = 1.;
+// 		if ( grass_type_==1 ) cout << "GRPHEN on  " << setw(5) << GLOB_YEAR << setw(5) << day << setw(5) << grass_type_ << endl;
 	}
 	
 	active_days_ += (1-Dormant_);
@@ -430,6 +457,14 @@ void clGrass::RunPhysiology( double A0_C4, double A0_C3, double RmL_C4, double R
 	
 	fuel_moisture_ *= DESIC_COEFF[grass_type_];
 // 	cout << fuel_moisture_ << endl;
+	
+	
+	ccc_ -= (Bl_+Bs_+Br_);
+	ccc_  = -ccc_;
+	
+	if ( day==250 ) ccc_cum_ = 0.;
+	ccc_cum_ += ccc_;
+	
 	
 	return;
 }

@@ -45,39 +45,40 @@ if ( day_in_year%TIMESTEP_DAILY_DATA==0 )
 /* 8*/		setw(17) << MyGrassPop.getGPP()*0.44 <<            // kg C/m^2
 /* 9*/		setw(17) << MyGrassPop.getRma()*0.44 <<            // kg C/m^2
 /*10*/		setw(17) << MyGrassPop.getRgr()*0.44 <<            // kg C/m^2
-/*11*/		setw(17) << MyTreePop.getpCanopySav() <<
-/*12*/		setw(17) << MyTreePop.getpCanopyFor() <<
-/*13*/		setw(17) << MyTreePop.getLeafBmLive() <<           // kg biomass/m^2
-/*14*/		setw(17) << MyTreePop.getStemBmLive() <<           // kg biomass/m^2
-/*15*/		setw(17) << MyTreePop.getRootBmLive() <<           // kg biomass/m^2
-/*16*/		setw(17) << MyTreePop.getLeafBmDeadSt() <<         // kg biomass/m^2
-/*17*/		setw(17) << MyTreePop.getLeafBmDeadLy() <<         // kg biomass/m^2
-/*18*/		setw(17) << MyTreePop.getStemBmDeadSt() <<         // kg biomass/m^2
-/*19*/		setw(17) << MyTreePop.getStemBmDeadLy() <<         // kg biomass/m^2
-/*20*/		setw(17) << MyTreePop.getRootBmDead() <<           // kg biomass/m^2
-/*21*/		setw(17) << MyTreePop.getGPP()*0.44 <<             // kg C/m^2
-/*22*/		setw(17) << MyTreePop.getRma()*0.44 <<             // kg C/m^2
-/*23*/		setw(17) << MyTreePop.getRgr()*0.44 <<             // kg C/m^2
-/*24*/		setw(17) << MyTreePop.getMeanLai() <<
-/*25*/		setw(10) << MyTreePop.getPopSize() <<
-/*26*/		setw(17) << MyTreePop.getMeanHeight() <<
-/*27*/		setw(17) << MyGrassPop.getC34Ratio() <<
-/*28*/		setw(17) << tmp_mean <<
-/*29*/		setw(17) << MyTreePop.getTallTrees() <<
-/*30*/		setw(17) << MyTreePop.getBasalArea() <<
-/*31*/		setw(17) << ca_par_preassure*10. <<//cs_preassure <<
-/*32*/		setw(17) << Rain[day_in_year] <<
-/*33*/		setw(17) << EtSite <<
-/*34*/		setw(17) << mySoil.GetCarbonRelease() <<           // in C kg/m^2, already in C, no multipl. with 0.44
-/*35*/		setw(17) << total_combustion*0.44 <<               // in C kg/m^2
+/*11*/		setw(17) << MyTreePop.getpCanopyType(TR_SAV) <<
+/*12*/		setw(17) << MyTreePop.getpCanopyType(TR_FOR) <<
+/*13*/		setw(17) << MyTreePop.getpCanopyType(TR_BBS) <<
+/*14*/		setw(17) << MyTreePop.getLeafBmLive() <<           // kg biomass/m^2
+/*15*/		setw(17) << MyTreePop.getStemBmLive() <<           // kg biomass/m^2
+/*16*/		setw(17) << MyTreePop.getRootBmLive() <<           // kg biomass/m^2
+/*17*/		setw(17) << MyTreePop.getLeafBmDeadSt() <<         // kg biomass/m^2
+/*18*/		setw(17) << MyTreePop.getLeafBmDeadLy() <<         // kg biomass/m^2
+/*19*/		setw(17) << MyTreePop.getStemBmDeadSt() <<         // kg biomass/m^2
+/*20*/		setw(17) << MyTreePop.getStemBmDeadLy() <<         // kg biomass/m^2
+/*21*/		setw(17) << MyTreePop.getRootBmDead() <<           // kg biomass/m^2
+/*22*/		setw(17) << MyTreePop.getGPP()*0.44 <<             // kg C/m^2
+/*23*/		setw(17) << MyTreePop.getRma()*0.44 <<             // kg C/m^2
+/*24*/		setw(17) << MyTreePop.getRgr()*0.44 <<             // kg C/m^2
+/*25*/		setw(17) << MyTreePop.getMeanLai() <<
+/*26*/		setw(10) << MyTreePop.getPopSize() <<
+/*27*/		setw(17) << MyTreePop.getMeanHeight() <<
+/*28*/		setw(17) << MyGrassPop.getC34Ratio() <<
+/*29*/		setw(17) << tmp_mean <<
+/*30*/		setw(17) << MyTreePop.getTallTrees() <<
+/*31*/		setw(17) << MyTreePop.getBasalArea() <<
+/*32*/		setw(17) << ca_par_preassure*10. <<//cs_preassure <<
+/*33*/		setw(17) << Rain[day_in_year] <<
+/*34*/		setw(17) << EtSite <<
+/*35*/		setw(17) << mySoil.GetCarbonRelease() <<           // in C kg/m^2, already in C, no multipl. with 0.44
+/*36*/		setw(17) << total_combustion*0.44 <<               // in C kg/m^2
 		#ifdef S_MANIP_SEASONALITY
-/*36*/		setw(17) << MAN_SEAS_value <<
+/*37*/		setw(17) << MAN_SEAS_value <<
 		#endif
 		#ifdef CLIM_SCEN
-/*36*/		setw(17) << cs_mean_prec <<
+/*37*/		setw(17) << cs_mean_prec <<
 		#endif
 		#ifdef S_MANIP_FIRE
-/*36*/		setw(17) << glob_fire_param <<
+/*37*/		setw(17) << glob_fire_param <<
 		#endif
 		endl;
 		

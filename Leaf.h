@@ -356,10 +356,11 @@ double CollatzBallBerryLeaf( double A, double Ca, double P, double m, double b, 
 {
 	double cs;
 	
-	
 	cs = Ca+1.4*A*P/gb; 							//this line follows Arora
-// 	hs *= 2.;
+	
 	double ret = MyMax(0,m*A*(hs/100.)*P/cs+b); 			//ie for negative An we produce zero gs
+	
+// 	cout << A << " " << hs/100 << " " << P << " " << cs << endl;
 	
 	return ret;
 }
@@ -375,6 +376,28 @@ double GetAd( double m, double b, double Ab, double Rh, double P,
 // 	cout << m << "  " << Rh << "  " << gs << endl;
 	return CollatzAd(gs,Ci,Ca,P);
 }
+
+
+
+double GetAd_end( double m, double b, double Ab, double Rh, double P, 
+					 double Ca, double Ci, double gb, double vt )
+{
+		double gs;
+	//	Rh *= 1.2;
+  		gs = CollatzBallBerryLeaf( Ab, Ca, P, m, b, Rh, gb );
+		      		    
+  		if ( vt==3. ) gs_C3_global += gs;
+		if ( vt==4. ) gs_C4_global += gs;
+		    //
+		    //  		            //    cout << "------------------ " << Ab << "  " << gb << "  " << gs << endl;
+		    //  		                // 	cout << m << "  " << Rh << "  " << gs << endl;
+		return CollatzAd(gs,Ci,Ca,P);    	
+}
+		  
+
+
+
+
 
 
 double GetgbLEAF( double u, double cld)
@@ -608,7 +631,10 @@ void GetC3A( double T, double sn, double sc, double Ca, double Oi, double Q0,
 	*A    = Jmin;
 	*RmLv = RmL(Vm,GammaC3);	
 	
-// 	cout << setw(14) << T << setw(14) << sn << setw(14) << sc << setw(14) << Ca << setw(14) << Oi << setw(14) << Q0 << setw(14) << GammaC3 << setw(14) << aC3 << setw(14) << alpha << setw(14) << Rh << setw(14) << P << setw(14) << wind << setw(14) << CLDtree << setw(14) << mtree << setw(14) << btree << setw(14) << tauC3K25 << setw(14) << tauC3Q10 << setw(14) << KoC3K25 << setw(14) << KoC3Q10 << setw(14) << KcC3K25 << setw(14) << KcC3Q10 << setw(14) << *A << setw(14) << *RmLv << endl;
+
+	GetAd_end(mtree,btree,*A,Rh,P,Ca,Ci,gb_molar, 3.); //A_diffusion
+	
+	// 	cout << setw(14) << T << setw(14) << sn << setw(14) << sc << setw(14) << Ca << setw(14) << Oi << setw(14) << Q0 << setw(14) << GammaC3 << setw(14) << aC3 << setw(14) << alpha << setw(14) << Rh << setw(14) << P << setw(14) << wind << setw(14) << CLDtree << setw(14) << mtree << setw(14) << btree << setw(14) << tauC3K25 << setw(14) << tauC3Q10 << setw(14) << KoC3K25 << setw(14) << KoC3Q10 << setw(14) << KcC3K25 << setw(14) << KcC3Q10 << setw(14) << *A << setw(14) << *RmLv << endl;
 	
 	return;
 }
@@ -667,6 +693,9 @@ void GetC4A( double T, double sn, double sc, double Ca, double k,
 // 	cout << "C4 " << setw(14) << T << setw(14) << Jc << setw(14) << Je << setw(14) << Jp << setw(14) << Jmin << endl;
 	*A    = Jmin;
 	*RmLv = RmL(Vm,GammaC4);
+
+
+	GetAd_end(mgrass,bgrass,*A,Rh,P,Ca,Ci,gb_molar, 4.);
 	
 	return;
 }
