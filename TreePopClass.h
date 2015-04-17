@@ -581,7 +581,7 @@ void clTreePop::setStateAfterFire( double intensity, double patchiness, double c
 	
 	while( count>1 )
 	{
-		if ( Trees[count].getFireDead() == 1 )
+		if ( Trees[count].WillIDieAfterFire() == 1 )
 		{
 			delTree( count );
 		}
@@ -589,8 +589,8 @@ void clTreePop::setStateAfterFire( double intensity, double patchiness, double c
 	}
 	
 	// tree 0 is special case as it is immortal and cannot be removed from population
-	// if ( Trees[0].WillIDieAfterFire() == 1 ) ;  GM: what do these lines do?
-	//	if ( Trees[1].WillIDieAfterFire() == 1 ) ; GM: what do  these lines do?
+	if ( Trees[0].WillIDieAfterFire() == 1 ) ;
+	if ( Trees[1].WillIDieAfterFire() == 1 ) ;
 	
 	calpCanopy();
 	

@@ -23,7 +23,6 @@ class clTree
 		int		reprod_strategy_;					// reproduction strategy, 0=seeds, 1=root sucker
 		int		tree_type_;							// 0=savanna tree, 1=forest tree
 		int		active_days_;						// counts active days per year
-		int		firedead_;						// fire mortality flag
 		
 		double	Bl_;    							// leaf biomass, kg per plant
 		double	Br_;    							// root biomass, kg per plant
@@ -119,7 +118,6 @@ class clTree
 		double getGc()				{ return gc_; }
 		double getGb()				{ return gb_; }
 		double getDeathProb()		{ return death_prob_; }
-		double getFireDead()		{ return firedead_; }
 		double getDroot()			{ return Droot_; }
 		double getnCGT()			{ return nCGT_; }
 		double getAindex()			{ return Aindex_; }
@@ -175,7 +173,6 @@ clTree::clTree( double init_mass, double pCanopy, int popsize, int number, int t
 	stem_area_		 = 0.00001;
 	site_param_		 = 0;
 	tree_type_		 = tree_type;
-	firedead_		=0;
 	active_days_	 = 0;
 	max_root_depth_  = max_root_depth;
 	
@@ -603,7 +600,6 @@ void clTree::setStateAfterFire( double intensity, double patchiness, double cc_f
 			Dpos_     = 0;
 			Dneg_     = 0;                           // NOTE need to simulate resprouting probability!!
 			UpdateAllometry();
-                        firedead_	= WillIDieAfterFire();   //This is the flag to determine which trees resprout after topkill
 		}
 	}
 	

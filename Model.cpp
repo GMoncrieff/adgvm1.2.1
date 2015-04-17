@@ -265,11 +265,11 @@ int main( int argc, char **argv )
 		LIGHT_COMP_SAVC3            = 0.15;
 		LIGHT_COMP_FORSAV           = 0.5;
 		TOP_KILL_CONST[0]           = 4.3;
-		TOP_KILL_CONST[1]           = 6.3;
+		TOP_KILL_CONST[1]           = 5.3;
 		TOP_KILL_H[0]               = 5.003;
-		TOP_KILL_H[1]               = 3.003;
+		TOP_KILL_H[1]               = 4.003;
 		TOP_KILL_I[0]               = 0.004408;
-		TOP_KILL_I[1]               = 0.006408;
+		TOP_KILL_I[1]               = 0.005408;
 		
 		L_SAV_SAV = 0.5;
 		L_SAV_FOR = 0.15;
