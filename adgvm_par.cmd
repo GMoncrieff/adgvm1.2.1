@@ -12,8 +12,8 @@
 #PBS -e myjob.err
 
 
-homefolder="/home/gmoncrieff/adgvm/DATE_BRANCH/adgvm1.2.1/result"
-current="/home/gmoncrieff/adgvm/DATE_BRANCH/adgvm1.2.1"
+homefolder="/home/gmoncrieff/adgvm/adgvm1/DATE_BRANCH/adgvm1.2.1/result"
+current="/home/gmoncrieff/adgvm/adgvm1/DATE_BRANCH/adgvm1.2.1"
 
 mv -f Globals_cluster.h Globals.h
 
