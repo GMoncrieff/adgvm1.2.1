@@ -13,7 +13,8 @@
 
 
 homefolder="/home/gmoncrieff/adgvm/adgvm1/DATE_BRANCH/result/"
-current="/home/gmoncrieff/adgvm/adgvm1/DATE_BRANCH/"
+current="/home/gmoncrieff/adgvm/adgvm1/DATE_BRANCH"
+cd $current
 
 mv -f Globals_cluster.h Globals.h
 
