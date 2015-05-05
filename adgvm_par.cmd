@@ -1,6 +1,6 @@
 #! /bin/bash
 
-#PBS -N Glenn_aDGVM1.2
+#PBS -N Glenn_aDGVM_fynbos_simon
 
 #PBS -l nodes=5:ppn=24
 #Memory required per processor (specify how many megabytes)
@@ -12,8 +12,8 @@
 #PBS -e myjob.err
 
 
-homefolder="/home/gmoncrieff/adgvm/adgvm1/DATE_BRANCH/adgvm1.2.1/result"
-current="/home/gmoncrieff/adgvm/adgvm1/DATE_BRANCH/adgvm1.2.1"
+homefolder="/home/gmoncrieff/adgvm/adgvm1/DATE_BRANCH/result/"
+current="/home/gmoncrieff/adgvm/adgvm1/DATE_BRANCH/"
 
 mv -f Globals_cluster.h Globals.h
 
