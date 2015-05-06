@@ -93,8 +93,8 @@ treecover_sav<-res[,16]       #savanna tree canopy cover
 treecover_for<-res[,17]       #forest tree canopy cover
 tree_biomass<-rowSums(res[,18:20])  #above ground tree biomass
 tree_height<-res[,23]         #tree height
-phenology_grass<-res[,67]/365 # % days tree active
-phenology_tree<-res[,68]/365  # % days grass active
+phenology_grass<-res[,68]/365 # % days grass active
+phenology_tree<-res[,67]/365  # % days tree active
 
 sites<-unique(coords)
 sites_string<-paste(as.character(sites[,1])," ",as.character(sites[,2]),sep="")
