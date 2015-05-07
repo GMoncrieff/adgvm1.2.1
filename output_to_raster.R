@@ -7,7 +7,9 @@ setwd("")
 
 nreps<-5
 # read in results
-res <- read.table("/Users/glennmoncrieff/adgvm1/results/DATE_BRANCH/result/OutputData/YearlyData.100.0.1.dat", quote="\"")
+res <- read.table("/Users/glennmoncrieff/adgvm1/results/050515_master/result/OutputData/YearlyData.100.0.1.dat", quote="\"")
+#res <- read.table("/Users/glennmoncrieff/adgvm1/results/DATE_BRANCH/result/OutputData/YearlyData.100.0.1.dat", quote="\"")
+
 
 # /*  1 */        yearly_output_data[ 0] = longitude;
 # /*  2 */        yearly_output_data[ 1] = latitude;
@@ -107,7 +109,10 @@ for ( i in 1:nrow(sites)){
   temp <- which(coord_string==sites_string[i])
   #replace VOI with name from list above
   ##########
-  temp <- VOI[temp]
+  temp <- C4live[temp]
+  #temp <- C3live[temp]
+  #temp <- tree_biomass[temp]
+  #temp <- treecover_for[temp]
   ##########
   variable[i,]<-temp 
 }
@@ -128,7 +133,10 @@ for( i in 1:ncells){
 
 varXYZ<-cbind(sites,valid_mean)
 
-grass4<-rasterFromXYZ(varXYZ,digits=3)
+# treebiomass_master<-rasterFromXYZ(varXYZ,digits=3)
+# forcover_master<-rasterFromXYZ(varXYZ,digits=3)
+ C4_master<-rasterFromXYZ(varXYZ,digits=3)
+# C3_master<-rasterFromXYZ(varXYZ,digits=3)
 
 ################################################
 #biome map
