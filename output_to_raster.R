@@ -113,6 +113,7 @@ for ( i in 1:nrow(sites)){
   #temp <- C3live[temp]
   #temp <- tree_biomass[temp]
   #temp <- treecover_for[temp]
+  #temp <- treecover_sav[temp]
   ##########
   variable[i,]<-temp 
 }
@@ -135,7 +136,8 @@ varXYZ<-cbind(sites,valid_mean)
 
 # treebiomass_master<-rasterFromXYZ(varXYZ,digits=3)
 # forcover_master<-rasterFromXYZ(varXYZ,digits=3)
- C4_master<-rasterFromXYZ(varXYZ,digits=3)
+ savcover_master<-rasterFromXYZ(varXYZ,digits=3)
+# C4_master<-rasterFromXYZ(varXYZ,digits=3)
 # C3_master<-rasterFromXYZ(varXYZ,digits=3)
 
 ################################################
