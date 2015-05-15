@@ -1417,7 +1417,7 @@ int main( int argc, char **argv )
 				double fire_intensity;
 				
 				double dead_fuel = MyGrassPop.getDryBiomassForFire();   // in kg/m^2
-								  + MyTreePop.getDryBiomassForFire();   // in kg/m^2
+								 // + MyTreePop.getDryBiomassForFire();   // in kg/m^2
 				
 				double live_fuel  = MyGrassPop.getWetBiomassForFire();
 				
