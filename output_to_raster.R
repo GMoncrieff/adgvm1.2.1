@@ -97,6 +97,7 @@ tree_biomass<-rowSums(res[,18:20])  #above ground tree biomass
 tree_height<-res[,23]         #tree height
 phenology_grass<-res[,68]/365 # % days grass active
 phenology_tree<-res[,67]/365  # % days tree active
+fire_num<-res[,32]/(mean(res[,3])-30)  
 
 sites<-unique(coords)
 sites_string<-paste(as.character(sites[,1])," ",as.character(sites[,2]),sep="")
@@ -104,19 +105,16 @@ coord_string<-paste(as.character(coords[,1])," ",as.character(coords[,2]),sep=""
 
 #create matrix from variable with rows as sites and columns as model runs
 variable<-matrix(,nrow(sites),nreps)
+VOIS<-c("fire_num","phenology_grass","phenology_tree","C3C4","C4live","C3live","tree_biomass","treecover_for","treecover_sav","treecover_bbs")
 
-for ( i in 1:nrow(sites)){  
-  temp <- which(coord_string==sites_string[i])
-  #replace VOI with name from list above
-  ##########
-  temp <- C4live[temp]
-  #temp <- C3live[temp]
-  #temp <- tree_biomass[temp]
-  #temp <- treecover_for[temp]
-  #temp <- treecover_sav[temp]
-  ##########
-  variable[i,]<-temp 
-}
+for (v in 1:length(VOIS)){
+  
+  VOI<- get(VOIS[v])
+  
+  for ( i in 1:nrow(sites)){  
+    temp <- which(coord_string==sites_string[i])
+    variable[i,]<-VOI[temp]
+  }
 
 ############################################## clean and plot
 
@@ -133,12 +131,10 @@ for( i in 1:ncells){
 }
 
 varXYZ<-cbind(sites,valid_mean)
-
-# treebiomass_master<-rasterFromXYZ(varXYZ,digits=3)
-# forcover_master<-rasterFromXYZ(varXYZ,digits=3)
- savcover_master<-rasterFromXYZ(varXYZ,digits=3)
-# C4_master<-rasterFromXYZ(varXYZ,digits=3)
-# C3_master<-rasterFromXYZ(varXYZ,digits=3)
+temp<-rasterFromXYZ(varXYZ,digits=3)
+assign(paste(VOIS[v],"_master",sep=""),temp)
+paste(VOIS[v],"_master",sep="")
+}
 
 ################################################
 #biome map
@@ -155,6 +151,20 @@ varXYZ<-cbind(sites,valid_mean)
 # grass <- grass3+grass4
 # fcan <- for_can/cancov
 # fcan[Which(cancov==0)]=0
+
+####
+#define rasters
+####
+sav_can  <- treecover_sav_master
+for_can  <- treecover_for_master
+C34      <- C3C4_master
+grass3   <- C3live_master
+grass4   <- C4live_master
+
+cancov <- sav_can+for_can
+grass <- grass3+grass4
+fcan <- for_can/cancov
+fcan[Which(cancov==0)]=0
 
 #check all varialbe good and create base template
 allinput<-stack(cancov,C34,grass,fcan)
@@ -193,7 +203,7 @@ forest[Which(cancov>=0.8)]=6
 desert<-base
 desert[Which(cancov<=0.1 & grass<=0.5)]=7
 
-biome_map<-desert+forest+grasslandC3+grasslandC4+savannaC3+savannaC4+woodland
+biome_map_master<-desert+forest+grasslandC3+grasslandC4+savannaC3+savannaC4+woodland
 #biome_obs<-raster("/home/glenn/stability/vegmaps/pft_dom.asc")
 #aggregate first
 #biom_obs<-resample(real,biome_map,method="ngb")

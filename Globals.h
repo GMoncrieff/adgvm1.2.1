@@ -24,7 +24,7 @@ const string IN_DATA_HOME				= "/Users/glennmoncrieff/adgvm/data/InputData/";
 // Home directory of output data, this directory contains sub-directories (experiment_xyz).
 // Output data are written in OUT_DATA_HOME/(experiment_xyz),
 // the directory (experiment_xyz) is specified in the model command line.
-const string OUT_DATA_HOME				= "/Users/glennmoncrieff/adgvm/data/OutputData/aDGVM121";
+const string OUT_DATA_HOME				= "/Users/glennmoncrieff/adgvm/data/OutputData/aDGVM121/";
 
 
 
