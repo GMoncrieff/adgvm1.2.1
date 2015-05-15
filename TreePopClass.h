@@ -500,7 +500,7 @@ void clTreePop::RunPhysiology( double A0, double RmL, double mmsTOkgd, double T,
 	
 	if ( day==364 )
 	{
-		active_days_==0;
+		active_days_=0;
 		for ( int count=0; count<pop_size_; count++ ) active_days_ += Trees[count].getActiveDays();
 		active_days_/=(double)pop_size_;
 // 		cout << "GSL" << setw(14) << active_days_ << endl;

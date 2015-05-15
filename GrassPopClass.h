@@ -256,7 +256,7 @@ void clGrassPop::RunPhysiology( double A0_C4, double A0_C3, double RmL_C4, doubl
 	
 	if ( day==364 )
 	{
-		active_days_==0;
+		active_days_=0;
 		for ( int count=0; count<pop_size_; count++ ) active_days_ += Grasses[count].getActiveDays();
 		active_days_/=(double)pop_size_;
 // 		cout << "GSL" << setw(24) << active_days_ << endl;
