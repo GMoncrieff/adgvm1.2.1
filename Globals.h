@@ -341,9 +341,9 @@ const double FIRE_QV					= 160749.;
 // constants for topkill probability (Higgins et al. 2000)
 // +- arbitrary values for forest trees that ensure that P(topkill)=1
 #ifndef OPTIM_GLOBALS
-const double TOP_KILL_CONST[2]			= { 4.3, 6.3 };
+const double TOP_KILL_CONST[2]			= { 4.3, 7.3 };
 const double TOP_KILL_H[2]				= { 5.003, 3.003 };
-const double TOP_KILL_I[2]				= { 0.004408, 0.006408 };
+const double TOP_KILL_I[2]				= { 0.004408, 0.007408 };
 #endif
 
 // constants for fire ignition
@@ -361,7 +361,7 @@ const double PROB_ROOT_SUCKER[2]		= { 0., 0. };
 // const double PROB_ROOT_SUCKER[2]		= { 0.25, 0.05};
 #endif
 
-const double RESPROUTING_PROB[2]		= { 0.995, 0.5 };
+const double RESPROUTING_PROB[2]		= { 0.995, 0.1 };
 
 #ifdef S_FLAMABLE_C3
 const double DESIC_COEFF[6]				= { 0.95, 0.95, 0.95, 0.95, 0.95, 0.95 };  // C4 dries out faster (Bond 2008)

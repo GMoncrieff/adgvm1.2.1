@@ -113,7 +113,8 @@ for (v in 1:length(VOIS)){
   
   for ( i in 1:nrow(sites)){  
     temp <- which(coord_string==sites_string[i])
-    variable[i,]<-VOI[temp]
+    ltemp<-length(temp)
+    variable[i,1:ltemp]<-VOI[temp]
   }
 
 ############################################## clean and plot

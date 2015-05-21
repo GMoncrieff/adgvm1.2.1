@@ -302,6 +302,7 @@ int clTree::WillIDie(int frost)
 		Bl_  *= 0.01;
 		Bs_  *= 0.01;
 		Br_  *= 0.01;
+		will_I= 0;
 	}
 	
 	return will_I;
@@ -326,6 +327,7 @@ int clTree::WillIDieAfterFire()
 		Bl_  *= 0.01;
 		Bs_  *= 0.01;
 		Br_  *= 0.01;
+		will_I= 0;
 	}
 	
 	return will_I;

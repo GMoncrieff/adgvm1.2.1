@@ -73,6 +73,7 @@ class clTreePop
 		~clTreePop();
 		void delTree( int number );
 		void RunDeathProcess(int frost);
+		void RunFireDeathProcess();
 		double getDryBiomassForFire();
 		void addFirstTree( double init_mass, int tree_type );
 		void addTree( double init_mass, int tree_type );
@@ -536,7 +537,23 @@ void clTreePop::RunDeathProcess(int frost)
 	return;
 }
 
-
+void clTreePop::RunFireDeathProcess()
+{
+	int count   = pop_size_-1;
+	
+	while( count>=0 )
+	{
+		if ( Trees[count].getFireDead() == 1)
+		{
+			delTree( count );
+		}
+		count--;
+	}
+	
+	calpCanopy();
+	
+	return;
+}
 // ---------------------------------------------------------------------------------------------------------------------------
 void clTreePop::setStateAfterFire( double intensity, double patchiness, double cc_fine, double cc_coarse,
 								   double cc_heavy, double cc_tk_helper )
@@ -577,16 +594,7 @@ void clTreePop::setStateAfterFire( double intensity, double patchiness, double c
 	}
 	
 	
-	int count   = pop_size_-1;
-	
-	while( count>1 )
-	{
-		if ( Trees[count].getFireDead() == 1 )
-		{
-			delTree( count );
-		}
-		count--;
-	}
+	RunFireDeathProcess();
 
 	
 	calpCanopy();
